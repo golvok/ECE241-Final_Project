@@ -1,9 +1,7 @@
-# -------------------------------------------------------------------------- #
-#
-# Copyright (C) 1991-2013 Altera Corporation
+# Copyright (C) 1991-2006 Altera Corporation
 # Your use of Altera Corporation's design tools, logic functions 
 # and other software and tools, and its AMPP partner logic 
-# functions, and any output files from any of the foregoing 
+# functions, and any output files any of the foregoing 
 # (including device programming or simulation files), and any 
 # associated documentation or information are expressly subject 
 # to the terms and conditions of the Altera Program License 
@@ -13,42 +11,24 @@
 # programming logic devices manufactured by Altera and sold by 
 # Altera or its authorized distributors.  Please refer to the 
 # applicable agreement for further details.
-#
-# -------------------------------------------------------------------------- #
-#
-# Quartus II 64-Bit
-# Version 13.0.1 Build 232 06/12/2013 Service Pack 1 SJ Web Edition
-# Date created = 21:25:30  November 11, 2013
-#
-# -------------------------------------------------------------------------- #
-#
-# Notes:
-#
-# 1) The default values for assignments are stored in the file:
-#		motionDetection_assignment_defaults.qdf
-#    If this file doesn't exist, see file:
+
+
+# The default values for assignments are stored in the file
+#		Testing_assignment_defaults.qdf
+# If this file doesn't exist, and for assignments not listed, see file
 #		assignment_defaults.qdf
-#
-# 2) Altera recommends that you do not modify this file. This
-#    file is updated automatically by the Quartus II software
-#    and any changes you make may be lost or overwritten.
-#
-# -------------------------------------------------------------------------- #
+
+# Altera recommends that you do not modify this file. This
+# file is updated automatically by the Quartus II software
+# and any changes you make may be lost or overwritten.
 
 
 set_global_assignment -name FAMILY "Cyclone II"
 set_global_assignment -name DEVICE EP2C35F672C6
-set_global_assignment -name TOP_LEVEL_ENTITY motionDetection
-set_global_assignment -name ORIGINAL_QUARTUS_VERSION "13.0 SP1"
-set_global_assignment -name PROJECT_CREATION_TIME_DATE "21:25:30  NOVEMBER 11, 2013"
+set_global_assignment -name TOP_LEVEL_ENTITY vv
+set_global_assignment -name ORIGINAL_QUARTUS_VERSION "6.0 SP1"
+set_global_assignment -name PROJECT_CREATION_TIME_DATE "07:28:16  OCTOBER 27, 2006"
 set_global_assignment -name LAST_QUARTUS_VERSION "13.0 SP1"
-set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
-set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
-set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
-set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
-set_global_assignment -name EDA_SIMULATION_TOOL "ModelSim-Altera (Verilog)"
-set_global_assignment -name EDA_TIME_SCALE "1 ps" -section_id eda_simulation
-set_global_assignment -name EDA_OUTPUT_DATA_FORMAT "VERILOG HDL" -section_id eda_simulation
 set_location_assignment PIN_N25 -to SW[0]
 set_location_assignment PIN_N26 -to SW[1]
 set_location_assignment PIN_P25 -to SW[2]
@@ -474,24 +454,43 @@ set_location_assignment PIN_V24 -to GPIO_1[32]
 set_location_assignment PIN_V23 -to GPIO_1[33]
 set_location_assignment PIN_W25 -to GPIO_1[34]
 set_location_assignment PIN_W23 -to GPIO_1[35]
+set_global_assignment -name ENABLE_SIGNALTAP OFF
+set_global_assignment -name AUTO_ENABLE_SMART_COMPILE ON
+set_global_assignment -name TSU_REQUIREMENT "10 ns"
+set_global_assignment -name FMAX_REQUIREMENT "27 MHz" -section_id CLOCK_27
+set_global_assignment -name FMAX_REQUIREMENT "50 MHz" -section_id CLOCK_50
+set_instance_assignment -name CLOCK_SETTINGS CLOCK_27 -to CLOCK_27
+set_instance_assignment -name CLOCK_SETTINGS CLOCK_50 -to CLOCK_50
+set_global_assignment -name ENABLE_CLOCK_LATENCY ON
+set_global_assignment -name ALWAYS_ENABLE_INPUT_BUFFERS ON
+set_instance_assignment -name FAST_INPUT_REGISTER ON -to *
+set_global_assignment -name ENABLE_RECOVERY_REMOVAL_ANALYSIS ON
+set_global_assignment -name DO_COMBINED_ANALYSIS ON
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MINIMUM CURRENT" -to *
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to *
+set_global_assignment -name LL_ROOT_REGION ON -section_id "Root Region"
+set_global_assignment -name LL_MEMBER_STATE LOCKED -section_id "Root Region"
+set_global_assignment -name NUM_PARALLEL_PROCESSORS 4
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
-set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
-set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
-set_global_assignment -name VERILOG_FILE VideoIn_Demo/avconf/I2C_Controller.v
-set_global_assignment -name VERILOG_FILE VideoIn_Demo/avconf/avconf.v
-set_global_assignment -name VERILOG_FILE src/motionDetection.v
-set_global_assignment -name VERILOG_FILE vga_adapter/vga_pll.v
-set_global_assignment -name VERILOG_FILE vga_adapter/vga_controller.v
-set_global_assignment -name VERILOG_FILE vga_adapter/vga_address_translator.v
-set_global_assignment -name VERILOG_FILE vga_adapter/vga_adapter.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Video_In_FIFO.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Video_In.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Dual_Clock_FIFO.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_YCrCb_to_RGB_Converter.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_YCrCb_422_to_444_Converter.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_Video_In_Resize.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_Video_In_Deinterlacer.v
-set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_Video_In_Buffer.v
+set_global_assignment -name PARTITION_COLOR 2147039 -section_id Top
+set_global_assignment -name OPTIMIZE_HOLD_TIMING "ALL PATHS"
+set_global_assignment -name OPTIMIZE_FAST_CORNER_TIMING ON
 set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_ITU_R_656_Decoder.v
-set_global_assignment -name CDF_FILE output_files/Chain1.cdf
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_Video_In_Buffer.v
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_Video_In_Deinterlacer.v
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_Video_In_Resize.v
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_YCrCb_422_to_444_Converter.v
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_YCrCb_to_RGB_Converter.v
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Dual_Clock_FIFO.v
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Video_In.v
+set_global_assignment -name VERILOG_FILE VideoIn_Core/Video_In_FIFO.v
+set_global_assignment -name VERILOG_FILE avconf/avconf.v
+set_global_assignment -name VERILOG_FILE avconf/I2C_Controller.v
+set_global_assignment -name VERILOG_FILE VGA_PLL.v
+set_global_assignment -name VERILOG_FILE vga_adapter/vga_controller.v
+set_global_assignment -name VERILOG_FILE vga_adapter/vga_adapter.v
+set_global_assignment -name VERILOG_FILE vga_adapter/vga_address_translator.v
+set_global_assignment -name VERILOG_FILE vv.v
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name CDF_FILE ../output_files/Chain1.cdf
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

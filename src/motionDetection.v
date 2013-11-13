@@ -4,76 +4,81 @@
 `define COLOUR_WIDTH 3
 
 module motionDetection(
-    input           CLOCK_50,
+    input           CLOCK_50,               //  On Board 50 MHz
     input           CLOCK_27,
-    input [7:0]     D_DATA,
-    input           TD_HS,
-    input           TD_VS,
-    input [7:0]     TD_DATA,
-    output          TD_RESET,
-    output [9:0]    VGA_R,
-    output [9:0]    VGA_G,
-    output [9:0]    VGA_B,
-    output          VGA_HS,
-    output          VGA_VS,
-    output          VGA_BLANK,
-    output          VGA_SYNC,
-    output          VGA_CLK,
 
-    output [17:0]   LEDR
-);
+    input   [3:0]   KEY,
 
-    wire [`X_WIDTH-1:0] x;
-    wire [`Y_WIDTH-1:0] y;
+    output          VGA_CLK,                //  VGA Clock
+    output          VGA_HS,                 //  VGA H_SYNC
+    output          VGA_VS,                 //  VGA V_SYNC
+    output          VGA_BLANK,              //  VGA BLANK
+    output          VGA_SYNC,               //  VGA SYNC
+    output  [9:0]   VGA_R,                  //  VGA Red[9:0]
+    output  [9:0]   VGA_G,                  //  VGA Green[9:0]
+    output  [9:0]   VGA_B,                  //  VGA Blue[9:0]
 
-    assign LEDR = {x,y};
+    input   [7:0]   TD_DATA,                //  TV Decoder Data bus 8 bits
+    input           TD_HS,                  //  TV Decoder H_SYNC
+    input           TD_VS,                  //  TV Decoder V_SYNC
+    output          TD_RESET,               //  TV Decoder Reset
 
-    wire pixel_en;
+    output          I2C_SCLK,
+    inout           I2C_SDAT
+    );
 
     wire [4:0] red, blue;
     wire [5:0] green;
 
-    Video_In vi(
-        // Inputs
-        .CLOCK_50(CLOCK_50),
-        .CLOCK_27(CLOCK_27),
-        .reset(0),
-        .TD_DATA(TD_DATA),
-        .TD_HS(TD_HS),
-        .TD_VS(TD_VS),
-        .waitrequest(0),
-        // Outputs
-        .TD_RESET(TD_RESET),
-        .x(x),
-        .y(y),
-        .red(red),
-        .green(green),
-        .blue(blue),
-        .pixel_en(pixel_en)
+    wire vga_plot;
+    wire [8:0] vga_x;
+    wire [7:0] vga_y;
+
+    Video_In vin(
+        .CLOCK_50       (CLOCK_50),
+        .CLOCK_27       (CLOCK_27),
+        .TD_RESET       (TD_RESET),
+        .reset          (~KEY[0]),
+
+        .TD_DATA        (TD_DATA),
+        .TD_HS          (TD_HS),
+        .TD_VS          (TD_VS),
+
+        .waitrequest    (0),
+
+        .x              (vga_x),
+        .y              (vga_y),
+        .red            (red),
+        .green          (green),
+        .blue           (blue),
+        .pixel_en       (vga_plot)
     );
 
-    vga_adapter vga(
-        .resetn(1),
-        .clock(CLOCK_50),
-        .colour({red[4],green[5],blue[4]}),
-        // .colour(3'b111),
-        .x(x),
-        .y(y),
-        .plot(pixel_en),
-        .VGA_R(VGA_R),
-        .VGA_G(VGA_G),
-        .VGA_B(VGA_B),
-        .VGA_HS(VGA_HS),
-        .VGA_VS(VGA_VS),
-        .VGA_BLANK(VGA_BLANK),
-        .VGA_SYNC(VGA_SYNC),
-        .VGA_CLK(VGA_CLK)
+    avconf avc(
+        .I2C_SCLK       (I2C_SCLK),
+        .I2C_SDAT       (I2C_SDAT),
+        .CLOCK_50       (CLOCK_50),
+        .reset          (~KEY[0])
     );
 
-    defparam vga.RESOLUTION = "320x240";
-    defparam vga.MONOCHROME = "FALSE";
-    defparam vga.BITS_PER_COLOUR_CHANNEL = 1;
-    //defparam vga.BACKGROUND_IMAGE = "images/background.mif";
 
+    vga_adapter VGA(
+                .resetn(KEY[0]),
+                .clock(CLOCK_50),
+                .colour({red[4], green[5], blue[4]}),
+                .x(vga_x),
+                .y(vga_y),
+                .plot(vga_plot),
+                .VGA_R(VGA_R),
+                .VGA_G(VGA_G),
+                .VGA_B(VGA_B),
+                .VGA_HS(VGA_HS),
+                .VGA_VS(VGA_VS),
+                .VGA_BLANK(VGA_BLANK),
+                .VGA_SYNC(VGA_SYNC),
+                .VGA_CLK(VGA_CLK));
+            defparam VGA.RESOLUTION = "320x240";
+            defparam VGA.MONOCHROME = "FALSE";
+            defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 
 endmodule
