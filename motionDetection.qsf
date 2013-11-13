@@ -477,6 +477,7 @@ set_location_assignment PIN_W23 -to GPIO_1[35]
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name QIP_FILE rams/prev_image_ram.qip
 set_global_assignment -name VERILOG_FILE VideoIn_Demo/avconf/I2C_Controller.v
 set_global_assignment -name VERILOG_FILE VideoIn_Demo/avconf/avconf.v
 set_global_assignment -name VERILOG_FILE src/motionDetection.v

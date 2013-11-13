@@ -61,7 +61,6 @@ module motionDetection(
         .reset          (~KEY[0])
     );
 
-
     vga_adapter VGA(
                 .resetn(KEY[0]),
                 .clock(CLOCK_50),
@@ -76,9 +75,41 @@ module motionDetection(
                 .VGA_VS(VGA_VS),
                 .VGA_BLANK(VGA_BLANK),
                 .VGA_SYNC(VGA_SYNC),
-                .VGA_CLK(VGA_CLK));
+                .VGA_CLK(VGA_CLK)
+    );
             defparam VGA.RESOLUTION = "320x240";
             defparam VGA.MONOCHROME = "FALSE";
             defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+
+    reg [2:0]  prev_image_data_in;
+    reg [16:0] prev_image_rdaddress;
+    reg        prev_image_rdclock;
+    reg [16:0] prev_image_wraddress;
+    reg        prev_image_wrclock;
+    reg        prev_image_wr_en;
+    wire [2:0]  prev_image_data_out;
+
+    always @(posedge CLOCK_50)
+    begin
+        prev_image_data_in <= {red[4], green[5], blue[4]};
+        prev_image_wraddress <= vga_y*360 + vga_x;
+        if(vga_plot)
+        begin
+            prev_image_wr_en <=1;
+        end
+        else
+        begin
+            prev_image_wr_en <=0;
+        end
+    end
+    prev_image_ram prev_image(
+        .data(prev_image_data_in),
+        .rdaddress(prev_image_rdaddress),
+        .rdclock(CLOCK_50),
+        .wraddress(prev_image_wraddress),
+        .wrclock(CLOCK_50),
+        .wren(prev_image_wr_en),
+        .q(prev_image_data_out)
+    );
 
 endmodule
