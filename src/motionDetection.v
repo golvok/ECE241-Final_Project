@@ -115,6 +115,7 @@ module motionDetection(
 
         // newData <= prev_image_data_in;
         prev_image_wraddress <= prev_image_rdaddress;
+        // prev_image_rdaddress <= pixelIn_y*320 + pixelIn_x;
 		prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
 
         // oldData <= prev_image_data_out;
@@ -140,9 +141,9 @@ module motionDetection(
 			end
 			else
 			begin
-				displayColour = prev_image_data_out[displayChanel];
+				displayColour <= prev_image_data_out[displayChanel];
 			end
-			
+
             // if(newData != 3'b000)
             // begin
 			// end
