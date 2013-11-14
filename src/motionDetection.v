@@ -1,4 +1,3 @@
-
 `define X_WIDTH 8
 `define Y_WIDTH 7
 `define COLOUR_WIDTH 3
@@ -22,9 +21,10 @@ module motionDetection(
     input           TD_HS,                  //  TV Decoder H_SYNC
     input           TD_VS,                  //  TV Decoder V_SYNC
     output          TD_RESET,               //  TV Decoder Reset
-
+	
     output          I2C_SCLK,
-    inout           I2C_SDAT
+    inout           I2C_SDAT,
+	input [17:0]SW
     );
 
     wire [4:0] red, blue;
@@ -33,7 +33,11 @@ module motionDetection(
     wire vga_plot;
     wire [8:0] vga_x;
     wire [7:0] vga_y;
-
+	
+	reg displayColour;
+	wire [2:0]displayChanel;
+	assign displayChanel = SW[2:0];
+	
     Video_In vin(
         .CLOCK_50       (CLOCK_50),
         .CLOCK_27       (CLOCK_27),
@@ -64,7 +68,9 @@ module motionDetection(
     vga_adapter VGA(
                 .resetn(KEY[0]),
                 .clock(CLOCK_50),
-                .colour({red[4], green[5], blue[4]}),
+//              .colour({red[4], green[5], blue[4]}),
+              .colour(displayColour),
+//              .colour(prev_image_data_out[displayChanel]),
                 .x(vga_x),
                 .y(vga_y),
                 .plot(vga_plot),
@@ -78,7 +84,7 @@ module motionDetection(
                 .VGA_CLK(VGA_CLK)
     );
             defparam VGA.RESOLUTION = "320x240";
-            defparam VGA.MONOCHROME = "FALSE";
+            defparam VGA.MONOCHROME = "TRUE";
             defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 
     reg [2:0]  prev_image_data_in;
@@ -93,9 +99,18 @@ module motionDetection(
     begin
         prev_image_data_in <= {red[4], green[5], blue[4]};
         prev_image_wraddress <= vga_y*360 + vga_x;
+		prev_image_rdaddress <= vga_y*360 + vga_x;
         if(vga_plot)
         begin
             prev_image_wr_en <=1;
+			if(prev_image_data_in != prev_image_data_out)
+			begin
+				displayColour <= 1;
+			end
+			else
+			begin
+				displayColour <= 0;
+			end
         end
         else
         begin
