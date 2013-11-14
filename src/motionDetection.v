@@ -39,9 +39,6 @@ module motionDetection(
     reg [8:0] vga_x;
     reg [7:0] vga_y;
 
-    // reg [8:0] drawLoc_x;
-    // reg [7:0] drawLoc_y;
-
 	reg vga_colour;
 	wire [2:0] displayChanel;
 	assign displayChanel = SW[2:0];
@@ -95,34 +92,32 @@ module motionDetection(
             defparam VGA.RESOLUTION = "320x240";
             defparam VGA.MONOCHROME = "TRUE";
             defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
-    // reg [2:0]  newData;
-
-    reg [2:0]  oldData;
 
 
     reg [2:0]  prev_image_data_in;
     reg [16:0] prev_image_rdaddress;
-    reg        prev_image_rdclock;
     reg [16:0] prev_image_wraddress;
-    reg        prev_image_wrclock;
     reg        prev_image_wr_en;
     wire [2:0]  prev_image_data_out;
 
-
+    prev_image_ram prev_image(
+        .data(prev_image_data_in),
+        .rdaddress(prev_image_rdaddress),
+        .rdclock(CLOCK_50),
+        .wraddress(prev_image_wraddress),
+        .wrclock(CLOCK_50),
+        .wren(prev_image_wr_en),
+        .q(prev_image_data_out)
+    );
 
     always @(posedge CLOCK_50)
     begin
         prev_image_data_in <= pixelIn_colour;
 
-        // newData <= prev_image_data_in;
         prev_image_wraddress <= prev_image_rdaddress;
         // prev_image_rdaddress <= pixelIn_y*320 + pixelIn_x;
 		prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
 
-        // oldData <= prev_image_data_out;
-
-        // drawLoc_x <= displayLoc_x;
-        // drawLoc_y <= displayLoc_y;
         if(pixelIn_en)
         begin
             vga_plot <= 1;
@@ -161,14 +156,5 @@ module motionDetection(
             vga_y <= 0;
         end
     end
-    prev_image_ram prev_image(
-        .data(prev_image_data_in),
-        .rdaddress(prev_image_rdaddress),
-        .rdclock(CLOCK_50),
-        .wraddress(prev_image_wraddress),
-        .wrclock(CLOCK_50),
-        .wren(prev_image_wr_en),
-        .q(prev_image_data_out)
-    );
 
 endmodule
