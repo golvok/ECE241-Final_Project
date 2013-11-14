@@ -127,15 +127,22 @@ module motionDetection(
             prev_image_wr_en <=1;
             displayLoc_x <= pixelIn_x;
             displayLoc_y <= pixelIn_y;
-            if(prev_image_data_out != {pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]})
-            begin
-                displayColour <= 1;
-            end
-            else
-            begin
-                displayColour <= 0;
-            end
-
+			if(SW[3])
+			begin
+				if(prev_image_data_out != {pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]})
+				begin
+					displayColour <= 1;
+				end
+				else
+				begin
+					displayColour <= 0;
+				end
+			end
+			else
+			begin
+				displayColour = prev_image_data_out[displayChanel];
+			end
+			
             // if(newData != 3'b000)
             // begin
 			// end
