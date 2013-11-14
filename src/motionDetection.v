@@ -125,8 +125,7 @@ module motionDetection(
             vga_x <= pixelIn_x;
             vga_y <= pixelIn_y;
 			if(SW[3])
-			begin
-				begin
+            begin
 				if(prev_image_data_out != pixelIn_colour) begin
 					vga_colour <= 1;
 				end
