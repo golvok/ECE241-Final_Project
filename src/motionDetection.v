@@ -21,23 +21,30 @@ module motionDetection(
     input           TD_HS,                  //  TV Decoder H_SYNC
     input           TD_VS,                  //  TV Decoder V_SYNC
     output          TD_RESET,               //  TV Decoder Reset
-	
+
     output          I2C_SCLK,
     inout           I2C_SDAT,
 	input [17:0]SW
     );
 
-    wire [4:0] red, blue;
-    wire [5:0] green;
 
-    wire vga_plot;
-    wire [8:0] vga_x;
-    wire [7:0] vga_y;
-	
+    wire pixel_en;
+    wire [4:0] pixelIn_r, pixelIn_b;
+    wire [5:0] pixelIn_g;
+    wire [8:0] pixelIn_x;
+    wire [7:0] pixelIn_y;
+
+    reg vga_plot;
+    reg [8:0] displayLoc_x;
+    reg [7:0] displayLoc_y;
+
+    // reg [8:0] drawLoc_x;
+    // reg [7:0] drawLoc_y;
+
 	reg displayColour;
 	wire [2:0]displayChanel;
 	assign displayChanel = SW[2:0];
-	
+
     Video_In vin(
         .CLOCK_50       (CLOCK_50),
         .CLOCK_27       (CLOCK_27),
@@ -50,12 +57,12 @@ module motionDetection(
 
         .waitrequest    (0),
 
-        .x              (vga_x),
-        .y              (vga_y),
-        .red            (red),
-        .green          (green),
-        .blue           (blue),
-        .pixel_en       (vga_plot)
+        .x              (pixelIn_x),
+        .y              (pixelIn_y),
+        .red            (pixelIn_r),
+        .green          (pixelIn_g),
+        .blue           (pixelIn_b),
+        .pixel_en       (pixel_en)
     );
 
     avconf avc(
@@ -68,11 +75,12 @@ module motionDetection(
     vga_adapter VGA(
                 .resetn(KEY[0]),
                 .clock(CLOCK_50),
-//              .colour({red[4], green[5], blue[4]}),
-              .colour(displayColour),
-//              .colour(prev_image_data_out[displayChanel]),
-                .x(vga_x),
-                .y(vga_y),
+                // .colour({pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]}),
+                .colour(displayColour),
+                // .colour(prev_image_data_out[displayChanel]),
+                // .colour(prev_image_data_in[displayChanel]),
+                .x(displayLoc_x),
+                .y(displayLoc_y),
                 .plot(vga_plot),
                 .VGA_R(VGA_R),
                 .VGA_G(VGA_G),
@@ -86,6 +94,10 @@ module motionDetection(
             defparam VGA.RESOLUTION = "320x240";
             defparam VGA.MONOCHROME = "TRUE";
             defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+    // reg [2:0]  newData;
+
+    reg [2:0]  oldData;
+
 
     reg [2:0]  prev_image_data_in;
     reg [16:0] prev_image_rdaddress;
@@ -95,26 +107,49 @@ module motionDetection(
     reg        prev_image_wr_en;
     wire [2:0]  prev_image_data_out;
 
+
+
     always @(posedge CLOCK_50)
     begin
-        prev_image_data_in <= {red[4], green[5], blue[4]};
-        prev_image_wraddress <= vga_y*360 + vga_x;
-		prev_image_rdaddress <= vga_y*360 + vga_x;
-        if(vga_plot)
+        prev_image_data_in <= {pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]};
+
+        // newData <= prev_image_data_in;
+        prev_image_wraddress <= prev_image_rdaddress;
+		prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
+
+        // oldData <= prev_image_data_out;
+
+        // drawLoc_x <= displayLoc_x;
+        // drawLoc_y <= displayLoc_y;
+        if(pixel_en)
         begin
+            vga_plot <= 1;
             prev_image_wr_en <=1;
-			if(prev_image_data_in != prev_image_data_out)
-			begin
-				displayColour <= 1;
-			end
-			else
-			begin
-				displayColour <= 0;
-			end
+            displayLoc_x <= pixelIn_x;
+            displayLoc_y <= pixelIn_y;
+            if(prev_image_data_out != {pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]})
+            begin
+                displayColour <= 1;
+            end
+            else
+            begin
+                displayColour <= 0;
+            end
+
+            // if(newData != 3'b000)
+            // begin
+			// end
+			// else
+			// begin
+			// 	displayColour <= 0;
+			// end
         end
         else
         begin
-            prev_image_wr_en <=0;
+            vga_plot <= 0;
+            prev_image_wr_en <= 0;
+            displayLoc_x <= 0;
+            displayLoc_y <= 0;
         end
     end
     prev_image_ram prev_image(
