@@ -28,21 +28,22 @@ module motionDetection(
     );
 
 
-    wire pixel_en;
+    wire pixelIn_en;
     wire [4:0] pixelIn_r, pixelIn_b;
     wire [5:0] pixelIn_g;
+    wire [2:0] pixelIn_colour = {pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]};
     wire [8:0] pixelIn_x;
     wire [7:0] pixelIn_y;
 
     reg vga_plot;
-    reg [8:0] displayLoc_x;
-    reg [7:0] displayLoc_y;
+    reg [8:0] vga_x;
+    reg [7:0] vga_y;
 
     // reg [8:0] drawLoc_x;
     // reg [7:0] drawLoc_y;
 
-	reg displayColour;
-	wire [2:0]displayChanel;
+	reg vga_colour;
+	wire [2:0] displayChanel;
 	assign displayChanel = SW[2:0];
 
     Video_In vin(
@@ -62,7 +63,7 @@ module motionDetection(
         .red            (pixelIn_r),
         .green          (pixelIn_g),
         .blue           (pixelIn_b),
-        .pixel_en       (pixel_en)
+        .pixel_en       (pixelIn_en)
     );
 
     avconf avc(
@@ -76,11 +77,11 @@ module motionDetection(
                 .resetn(KEY[0]),
                 .clock(CLOCK_50),
                 // .colour({pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]}),
-                .colour(displayColour),
+                .colour(vga_colour),
                 // .colour(prev_image_data_out[displayChanel]),
                 // .colour(prev_image_data_in[displayChanel]),
-                .x(displayLoc_x),
-                .y(displayLoc_y),
+                .x(vga_x),
+                .y(vga_y),
                 .plot(vga_plot),
                 .VGA_R(VGA_R),
                 .VGA_G(VGA_G),
@@ -111,7 +112,7 @@ module motionDetection(
 
     always @(posedge CLOCK_50)
     begin
-        prev_image_data_in <= {pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]};
+        prev_image_data_in <= pixelIn_colour;
 
         // newData <= prev_image_data_in;
         prev_image_wraddress <= prev_image_rdaddress;
@@ -122,26 +123,26 @@ module motionDetection(
 
         // drawLoc_x <= displayLoc_x;
         // drawLoc_y <= displayLoc_y;
-        if(pixel_en)
+        if(pixelIn_en)
         begin
             vga_plot <= 1;
             prev_image_wr_en <=1;
-            displayLoc_x <= pixelIn_x;
-            displayLoc_y <= pixelIn_y;
+            vga_x <= pixelIn_x;
+            vga_y <= pixelIn_y;
 			if(SW[3])
 			begin
-				if(prev_image_data_out != {pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]})
 				begin
-					displayColour <= 1;
+				if(prev_image_data_out != pixelIn_colour) begin
+					vga_colour <= 1;
 				end
 				else
 				begin
-					displayColour <= 0;
+					vga_colour <= 0;
 				end
 			end
 			else
 			begin
-				displayColour <= prev_image_data_out[displayChanel];
+				vga_colour <= prev_image_data_out[displayChanel];
 			end
 
             // if(newData != 3'b000)
@@ -149,15 +150,15 @@ module motionDetection(
 			// end
 			// else
 			// begin
-			// 	displayColour <= 0;
+			// 	vga_colour <= 0;
 			// end
         end
         else
         begin
             vga_plot <= 0;
             prev_image_wr_en <= 0;
-            displayLoc_x <= 0;
-            displayLoc_y <= 0;
+            vga_x <= 0;
+            vga_y <= 0;
         end
     end
     prev_image_ram prev_image(
