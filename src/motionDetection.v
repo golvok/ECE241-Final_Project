@@ -110,6 +110,32 @@ module motionDetection(
 		.q(prev_image_data_out)
 	);
 
+
+
+
+	// reg [2:0]row_above;
+	// reg [2:0]row_curr;
+	// reg [2:0]row_below;
+
+	// reg [8:0] bdiff_x;
+	// reg [7:0] bdiff_y;
+
+	// always @(posedge CLOCK_50) begin
+	// 	if (bdiff_x < 240) begin
+	// 		bdiff_x <= bdiff_x + 1;
+	// 		row_above <= {row_above[1:0],b
+	// 	end else begin
+	// 		bdiff_x <= 1;
+	// 		if(bdiff_y < 320)
+	// 			bdiff_y <= bdiff_y + 1;
+	// 		else begin
+	// 			bdiff_y <= 1;
+	// 			bdiff_x <= 1;
+	// 		end
+	// 	end
+
+	// end
+
 	always @(posedge CLOCK_50)
 	begin
 		prev_image_data_in <= pixelIn_colour;
@@ -157,3 +183,28 @@ module motionDetection(
 	end
 
 endmodule
+
+
+// module binary_diff(
+// 		input clock,
+// 		input [2:0] data_in,
+// 		input [`X_WIDTH-1:0] read_x,
+// 		input [`Y_WIDTH-1:0] read_y,
+// 		input [1:0] read_modulus
+// 	);
+// 	reg	       bdiff_data_in;
+// 	reg	[16:0] bdiff_rdaddress;
+// 	reg	[16:0] bidff_wraddress;
+// 	reg	       bdiff_wr_en;
+// 	wire [2:0] bdiff_data_out;
+
+// 	third_of_binary_diff tbd1(
+// 		.data(bdiff_data_in),
+// 		.rdaddress(bdiff_rdaddress),
+// 		.rdclock(clock),
+// 		.wraddress(bidff_wraddress),
+// 		.wrclock(clock),
+// 		.wren(bdiff_wr_en),
+// 		.q(bdiff_data_out)
+// 	);
+// endmodule

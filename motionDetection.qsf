@@ -477,6 +477,10 @@ set_location_assignment PIN_W23 -to GPIO_1[35]
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name SIMULATION_MODE FUNCTIONAL
+set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST ON -section_id eda_simulation
+set_global_assignment -name INCREMENTAL_VECTOR_INPUT_SOURCE "/home/matt/Documents/school/University/year_2 (2013)/semester_1/ECE241/final_project/ECE241-Final_Project/tests/read_write_tests.vwf"
+set_global_assignment -name QIP_FILE rams/third_of_binary_diff.qip
 set_global_assignment -name QIP_FILE rams/prev_image_ram.qip
 set_global_assignment -name VERILOG_FILE VideoIn_Demo/avconf/I2C_Controller.v
 set_global_assignment -name VERILOG_FILE VideoIn_Demo/avconf/avconf.v
@@ -496,8 +500,5 @@ set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_Video_In_Buffer.
 set_global_assignment -name VERILOG_FILE VideoIn_Core/Altera_UP_ITU_R_656_Decoder.v
 set_global_assignment -name CDF_FILE output_files/Chain1.cdf
 set_global_assignment -name VECTOR_WAVEFORM_FILE tests/read_write_tests.vwf
-set_global_assignment -name SIMULATION_MODE FUNCTIONAL
-set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST ON -section_id eda_simulation
-set_global_assignment -name INCREMENTAL_VECTOR_INPUT_SOURCE "/home/matt/Documents/school/University/year_2 (2013)/semester_1/ECE241/final_project/ECE241-Final_Project/tests/read_write_tests.vwf"
 set_global_assignment -name CDF_FILE output_files/Chain2.cdf
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
