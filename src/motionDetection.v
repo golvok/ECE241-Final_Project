@@ -115,8 +115,8 @@ module motionDetection(
 		prev_image_data_in <= pixelIn_colour;
 
 		prev_image_wraddress <= prev_image_rdaddress;
-		// prev_image_rdaddress <= pixelIn_y*320 + pixelIn_x;
-		prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
+		prev_image_rdaddress <= pixelIn_y*320 + pixelIn_x;
+		// prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
 
 		if(pixelIn_en)
 		begin
