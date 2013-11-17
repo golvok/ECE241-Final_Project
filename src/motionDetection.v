@@ -1,5 +1,7 @@
 `define X_WIDTH 8
 `define Y_WIDTH 7
+`define IMAGE_H 240
+`define IMAGE_W 320
 `define COLOUR_WIDTH 3
 
 module motionDetection(
@@ -24,7 +26,8 @@ module motionDetection(
 
 	output          I2C_SCLK,
 	inout           I2C_SDAT,
-	input [17:0]SW
+	input [17:0]SW,
+	output reg [17:0] LEDR
 	);
 
 
@@ -110,33 +113,148 @@ module motionDetection(
 		.q(prev_image_data_out)
 	);
 
+	reg	       bdiff_data_in;
+	reg	[16:0] bdiff_rdaddress;
+	reg	[16:0] bdiff_wraddress;
+	reg	       bdiff_wr_en;
+	wire       bdiff_data_out;
+
+	bdiff_image bdi(
+		.data(bdiff_data_in),
+		.rdaddress(bdiff_rdaddress),
+		.rdclock(CLOCK_50),
+		.wraddress(bdiff_wraddress),
+		.wrclock(CLOCK_50),
+		.wren(bdiff_wr_en),
+		.q(bdiff_data_out)
+	);
+
+	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display
+	reg [2:0] row_above;
+	reg [2:0] row_curr;
+	reg [2:0] row_below;
+
+	reg [8:0] bdiff_read_x;
+	reg [7:0] bdiff_read_y;
+
+	reg checkColour;
+	always @(posedge CLOCK_50)
+	begin
+		if(loadLoc == 3)
+		begin
+			if (bdiff_read_x >= `IMAGE_W - 1 && bdiff_read_y >= `IMAGE_H - 1)
+			begin
+				bdiff_read_y <= 1;
+				bdiff_read_x <= 1;
+				bdiff_read_x <= bdiff_read_x +1;
+			end
+			else if(bdiff_read_x >= `IMAGE_W - 1)
+			begin
+				bdiff_read_x <= 1;
+				bdiff_read_y <= bdiff_read_y + 1;
+				// LEDR[0] <= !LEDR[0];
+			end
+			else
+			begin
+				bdiff_read_x <= bdiff_read_x +1;
+			end
+
+			vga_plot <= 0;
+			loadLoc <= 4;
+			bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
+
+		end
+		else if(loadLoc == 4)
+		begin
+
+			vga_plot <= 1;
+			vga_x <= bdiff_read_x;
+			vga_y <= bdiff_read_y;
+			// vga_colour <= bdiff_data_out;
+			if(SW[3])
+			begin
+				vga_colour <= row_curr[1] & row_above[0]
+										  & row_above[1]
+										  & row_above[2]
+										  & row_below[0]
+										  & row_below[1]
+										  & row_below[2]
+										  & row_curr[0]
+										  & row_curr[2];
+			end
+			else
+			begin
+				vga_colour <= row_curr[1];
+			end
+
+			// checkColour <= !checkColour;
+			loadLoc <= 0;
+		end
+
+		// if(SW[5])LEDR[0] <= 0;
+		else
+		begin
+			vga_plot <= 0;
+
+			if(loadLoc == 0)
+			begin
+				bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
+				row_curr <= {row_curr[1:0], bdiff_data_out};
+				loadLoc <= 1;
+			end
+
+			else if(loadLoc == 1)
+			begin
+				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W;
+				row_above <= {row_above[1:0], bdiff_data_out};
+				loadLoc <= 2;
+
+			end
+
+			else if(loadLoc == 2)
+			begin
+				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W*2;
+				loadLoc <= 3;
+				row_below <= {row_below[1:0], bdiff_data_out};
+
+			end
+
+		end
+
+	end
+
+
+
+
+
 	always @(posedge CLOCK_50)
 	begin
 		prev_image_data_in <= pixelIn_colour;
 
 		prev_image_wraddress <= prev_image_rdaddress;
-		prev_image_rdaddress <= pixelIn_y*320 + pixelIn_x;
+		prev_image_rdaddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
+		bdiff_wraddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
 		// prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
 
 		if(pixelIn_en)
 		begin
-			vga_plot <= 1;
+			bdiff_wr_en <= 1;
 			prev_image_wr_en <=1;
-			vga_x <= pixelIn_x;
-			vga_y <= pixelIn_y;
-			if(SW[3])
+			// vga_x <= pixelIn_x;
+			// vga_y <= pixelIn_y;
+			if(SW[2])
 			begin
 				if(prev_image_data_out != pixelIn_colour) begin
-					vga_colour <= 1;
+					bdiff_data_in <= 1;
 				end
 				else
 				begin
-					vga_colour <= 0;
+					bdiff_data_in <= 0;
 				end
 			end
 			else
 			begin
-				vga_colour <= prev_image_data_out[displayChanel];
+				bdiff_data_in <= prev_image_data_out[displayChanel];
 			end
 
 			// if(newData != 3'b000)
@@ -149,10 +267,10 @@ module motionDetection(
 		end
 		else
 		begin
-			vga_plot <= 0;
+			bdiff_wr_en <= 0;
 			prev_image_wr_en <= 0;
-			vga_x <= 0;
-			vga_y <= 0;
+			// vga_x <= 0;
+			// vga_y <= 0;
 		end
 	end
 
