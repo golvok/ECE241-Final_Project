@@ -231,6 +231,7 @@ module display (
 		input enable_smoothing,
 		input clock
 	);
+	localparam DIFFERENCE_THRESHOLD = 400;
 	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display, 5 draw centroid
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
@@ -253,7 +254,7 @@ module display (
 		begin
 			if (bdiff_read_x >= `IMAGE_W - 1 && bdiff_read_y >= `IMAGE_H - 1)
 			begin
-				if(diff_count < 300 )
+				if(diff_count < DIFFERENCE_THRESHOLD)
 				begin
 					loadLoc <= 4;
 				end
@@ -357,7 +358,7 @@ module display (
 			begin
 				row_above <= {row_above[1:0], bdiff_data_out};
 				loadLoc <= 2;
-				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W*2;
+				bdiff_rdaddress <= bdiff_rdaddress + `IMAGE_W*2;
 			end
 
 			else if(loadLoc == 2)
