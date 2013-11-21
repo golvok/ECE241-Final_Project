@@ -168,7 +168,7 @@ module difference_engine (
 		input clock,
 
 		input pixelIn_en,
-		input [`COLOUR_WIDTH:0] pixelIn_colour,
+		input [`COLOUR_WIDTH-1:0] pixelIn_colour,
 		input [`X_WIDTH-1:0] pixelIn_x,
 		input [`Y_WIDTH-1:0] pixelIn_y,
 
@@ -259,8 +259,8 @@ module display (
 				end
 				else
 				begin
-					y_average <= (y_average*12 + 4*y_total/diff_count)/16;
-					x_average <= (x_average*12 + 4*x_total/diff_count)/16;
+					y_average <= (y_average*14 + 2*y_total/diff_count)/16;
+					x_average <= (x_average*14 + 2*x_total/diff_count)/16;
 					loadLoc <= 5;
 				end
 
