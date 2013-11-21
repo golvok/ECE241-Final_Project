@@ -188,6 +188,7 @@ module motionDetection(
 			end
 
 			// checkColour <= !checkColour;
+			bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
 			loadLoc <= 0;
 		end
 
@@ -198,22 +199,20 @@ module motionDetection(
 
 			if(loadLoc == 0)
 			begin
-				bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
 				row_curr <= {row_curr[1:0], bdiff_data_out};
 				loadLoc <= 1;
+				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W;
 			end
 
 			else if(loadLoc == 1)
 			begin
-				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W;
 				row_above <= {row_above[1:0], bdiff_data_out};
 				loadLoc <= 2;
-
+				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W*2;
 			end
 
 			else if(loadLoc == 2)
 			begin
-				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W*2;
 				loadLoc <= 3;
 				row_below <= {row_below[1:0], bdiff_data_out};
 
