@@ -129,7 +129,7 @@ module motionDetection(
 		.q(bdiff_data_out)
 	);
 
-	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display
+	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display, 5 draw centroid
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
 	reg [2:0] row_below;
@@ -138,29 +138,51 @@ module motionDetection(
 	reg [7:0] bdiff_read_y;
 
 	reg checkColour;
+	reg [23:0] x_total;
+	reg [23:0] y_total;
+	reg [16:0] diff_count;
+	reg [`X_WIDTH:0] x_average;
+	reg [`Y_WIDTH:0] y_average;
+
+	reg [2:0] x_draw_centroid_counter = 0, y_draw_centroid_counter = 0;
 	always @(posedge CLOCK_50)
 	begin
 		if(loadLoc == 3)
 		begin
 			if (bdiff_read_x >= `IMAGE_W - 1 && bdiff_read_y >= `IMAGE_H - 1)
 			begin
+				if(diff_count < 300 )
+				begin
+					loadLoc <= 4;
+				end
+				else
+				begin
+					y_average <= (y_average*12 + 4*y_total/diff_count)/16;
+					x_average <= (x_average*12 + 4*x_total/diff_count)/16;
+					loadLoc <= 5;
+				end
+
 				bdiff_read_y <= 1;
 				bdiff_read_x <= 1;
-				bdiff_read_x <= bdiff_read_x +1;
+				// bdiff_read_x <= bdiff_read_x +1;
+				x_total <= 0;
+				y_total <= 0;
+				diff_count <= 0;
 			end
 			else if(bdiff_read_x >= `IMAGE_W - 1)
 			begin
 				bdiff_read_x <= 1;
 				bdiff_read_y <= bdiff_read_y + 1;
+				loadLoc <= 4;
 				// LEDR[0] <= !LEDR[0];
 			end
 			else
 			begin
 				bdiff_read_x <= bdiff_read_x +1;
+				loadLoc <= 4;
 			end
 
 			vga_plot <= 0;
-			loadLoc <= 4;
 			bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
 
 		end
@@ -173,14 +195,21 @@ module motionDetection(
 			// vga_colour <= bdiff_data_out;
 			if(SW[3])
 			begin
-				vga_colour <= row_curr[1] & row_above[0]
+				if (row_curr[1] & row_above[0]
 										  & row_above[1]
 										  & row_above[2]
 										  & row_below[0]
 										  & row_below[1]
 										  & row_below[2]
 										  & row_curr[0]
-										  & row_curr[2];
+										  & row_curr[2] )
+				begin
+					vga_colour <= 1;
+					diff_count <= diff_count + 1;
+					x_total <= x_total + vga_x;
+					y_total <= y_total + vga_y;
+				end
+				else vga_colour <=0;
 			end
 			else
 			begin
@@ -192,6 +221,24 @@ module motionDetection(
 			loadLoc <= 0;
 		end
 
+		else if (loadLoc == 5) begin
+			vga_plot <= 1;
+			if (x_draw_centroid_counter < 4 && vga_x <= `IMAGE_W) begin
+				x_draw_centroid_counter <= x_draw_centroid_counter +1;
+			end else begin
+				x_draw_centroid_counter <= 0;
+				if(y_draw_centroid_counter < 4 && vga_y <= `IMAGE_H)
+					y_draw_centroid_counter <= y_draw_centroid_counter + 1;
+				else begin
+					y_draw_centroid_counter <= 0;
+					x_draw_centroid_counter <= 0;
+					loadLoc <= 0;
+				end
+			end
+			vga_colour <= 1;
+			vga_x <= x_average + x_draw_centroid_counter;
+			vga_y <= y_average + y_draw_centroid_counter;
+		end
 		// if(SW[5])LEDR[0] <= 0;
 		else
 		begin
