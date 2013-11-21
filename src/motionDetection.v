@@ -44,8 +44,6 @@ module motionDetection(
 	wire [7:0] vga_y;
 
 	wire vga_colour;
-	wire [2:0] displayChanel;
-	assign displayChanel = SW[2:0];
 
 	Video_In vin(
 		.CLOCK_50       (CLOCK_50),
@@ -98,10 +96,10 @@ module motionDetection(
 			defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 
 
-	reg [2:0]  prev_image_data_in;
-	reg [16:0] prev_image_rdaddress;
-	reg [16:0] prev_image_wraddress;
-	reg        prev_image_wr_en;
+	wire [2:0]  prev_image_data_in;
+	wire [16:0] prev_image_rdaddress;
+	wire [16:0] prev_image_wraddress;
+	wire        prev_image_wr_en;
 	wire [2:0]  prev_image_data_out;
 
 	prev_image_ram prev_image(
@@ -114,11 +112,11 @@ module motionDetection(
 		.q(prev_image_data_out)
 	);
 
-	reg	       bdiff_data_in;
-	wire[16:0] bdiff_rdaddress;
-	reg	[16:0] bdiff_wraddress;
-	reg	       bdiff_wr_en;
-	wire       bdiff_data_out;
+	wire        bdiff_data_in;
+	wire [16:0] bdiff_rdaddress;
+	wire [16:0] bdiff_wraddress;
+	wire        bdiff_wr_en;
+	wire        bdiff_data_out;
 
 	bdiff_image bdi(
 		.data(bdiff_data_in),
@@ -128,6 +126,28 @@ module motionDetection(
 		.wrclock(CLOCK_50),
 		.wren(bdiff_wr_en),
 		.q(bdiff_data_out)
+	);
+
+	difference_engine de(
+		.clock(CLOCK_50),
+
+		.pixelIn_en(pixelIn_en),
+		.pixelIn_colour(pixelIn_colour),
+		.pixelIn_x(pixelIn_x),
+		.pixelIn_y(pixelIn_y),
+
+		.displayChanel(SW[1:0]),
+		.enable_diff(SW[2]),
+
+		.prev_image_data_in(prev_image_data_in),
+		.prev_image_wraddress(prev_image_wraddress),
+		.prev_image_wr_en(prev_image_wr_en),
+		.prev_image_rdaddress(prev_image_rdaddress),
+		.prev_image_data_out(prev_image_data_out),
+
+		.bdiff_data_in(bdiff_data_in),
+		.bdiff_wraddress(bdiff_wraddress),
+		.bdiff_wr_en(bdiff_wr_en)
 	);
 
 	display disp(
@@ -141,22 +161,44 @@ module motionDetection(
 		.clock(CLOCK_50)
 	);
 
-	always @(posedge CLOCK_50)
+endmodule
+
+
+module difference_engine (
+		input clock,
+
+		input pixelIn_en,
+		input [`COLOUR_WIDTH:0] pixelIn_colour,
+		input [`X_WIDTH-1:0] pixelIn_x,
+		input [`Y_WIDTH-1:0] pixelIn_y,
+
+		input [1:0] displayChanel,
+		input enable_diff,
+
+		output reg [2:0]  prev_image_data_in,
+		output reg [16:0] prev_image_wraddress,
+		output reg        prev_image_wr_en,
+		output reg [16:0] prev_image_rdaddress,
+		input      [2:0]  prev_image_data_out,
+
+		output reg	       bdiff_data_in,
+		output reg	[16:0] bdiff_wraddress,
+		output reg	       bdiff_wr_en
+	);
+
+always @(posedge clock)
 	begin
 		prev_image_data_in <= pixelIn_colour;
 
 		prev_image_wraddress <= prev_image_rdaddress;
 		prev_image_rdaddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
 		bdiff_wraddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
-		// prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
 
 		if(pixelIn_en)
 		begin
 			bdiff_wr_en <= 1;
 			prev_image_wr_en <=1;
-			// vga_x <= pixelIn_x;
-			// vga_y <= pixelIn_y;
-			if(SW[2])
+			if(enable_diff)
 			begin
 				if(prev_image_data_out != pixelIn_colour) begin
 					bdiff_data_in <= 1;
@@ -170,26 +212,14 @@ module motionDetection(
 			begin
 				bdiff_data_in <= prev_image_data_out[displayChanel];
 			end
-
-			// if(newData != 3'b000)
-			// begin
-			// end
-			// else
-			// begin
-			// 	vga_colour <= 0;
-			// end
 		end
 		else
 		begin
 			bdiff_wr_en <= 0;
 			prev_image_wr_en <= 0;
-			// vga_x <= 0;
-			// vga_y <= 0;
 		end
 	end
-
 endmodule
-
 
 module display (
 		output reg vga_plot,
