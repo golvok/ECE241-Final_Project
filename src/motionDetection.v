@@ -1,5 +1,5 @@
-`define X_WIDTH 8
-`define Y_WIDTH 7
+`define X_WIDTH 9
+`define Y_WIDTH 8
 `define IMAGE_H 240
 `define IMAGE_W 320
 `define COLOUR_WIDTH 3
@@ -31,6 +31,7 @@ module motionDetection(
 	);
 
 
+
 	wire pixelIn_en;
 	wire [4:0] pixelIn_r, pixelIn_b;
 	wire [5:0] pixelIn_g;
@@ -38,11 +39,11 @@ module motionDetection(
 	wire [8:0] pixelIn_x;
 	wire [7:0] pixelIn_y;
 
-	reg vga_plot;
-	reg [8:0] vga_x;
-	reg [7:0] vga_y;
+	wire vga_plot;
+	wire [8:0] vga_x;
+	wire [7:0] vga_y;
 
-	reg vga_colour;
+	wire vga_colour;
 	wire [2:0] displayChanel;
 	assign displayChanel = SW[2:0];
 
@@ -114,7 +115,7 @@ module motionDetection(
 	);
 
 	reg	       bdiff_data_in;
-	reg	[16:0] bdiff_rdaddress;
+	wire[16:0] bdiff_rdaddress;
 	reg	[16:0] bdiff_wraddress;
 	reg	       bdiff_wr_en;
 	wire       bdiff_data_out;
@@ -129,6 +130,77 @@ module motionDetection(
 		.q(bdiff_data_out)
 	);
 
+	display disp(
+		.vga_plot(vga_plot),
+		.vga_colour(vga_colour),
+		.vga_x(vga_x),
+		.vga_y(vga_y),
+		.bdiff_rdaddress(bdiff_rdaddress),
+		.bdiff_data_out(bdiff_data_out),
+		.enable_smoothing(SW[3]),
+		.clock(CLOCK_50)
+	);
+
+	always @(posedge CLOCK_50)
+	begin
+		prev_image_data_in <= pixelIn_colour;
+
+		prev_image_wraddress <= prev_image_rdaddress;
+		prev_image_rdaddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
+		bdiff_wraddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
+		// prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
+
+		if(pixelIn_en)
+		begin
+			bdiff_wr_en <= 1;
+			prev_image_wr_en <=1;
+			// vga_x <= pixelIn_x;
+			// vga_y <= pixelIn_y;
+			if(SW[2])
+			begin
+				if(prev_image_data_out != pixelIn_colour) begin
+					bdiff_data_in <= 1;
+				end
+				else
+				begin
+					bdiff_data_in <= 0;
+				end
+			end
+			else
+			begin
+				bdiff_data_in <= prev_image_data_out[displayChanel];
+			end
+
+			// if(newData != 3'b000)
+			// begin
+			// end
+			// else
+			// begin
+			// 	vga_colour <= 0;
+			// end
+		end
+		else
+		begin
+			bdiff_wr_en <= 0;
+			prev_image_wr_en <= 0;
+			// vga_x <= 0;
+			// vga_y <= 0;
+		end
+	end
+
+endmodule
+
+
+module display (
+		output reg vga_plot,
+		output reg vga_colour,
+		output reg [`X_WIDTH-1:0] vga_x,
+		output reg [`Y_WIDTH-1:0] vga_y,
+		output reg [16:0] bdiff_rdaddress,
+		input bdiff_data_out,
+		input enable_smoothing,
+		input clock
+	);
 	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display, 5 draw centroid
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
@@ -141,11 +213,11 @@ module motionDetection(
 	reg [23:0] x_total;
 	reg [23:0] y_total;
 	reg [16:0] diff_count;
-	reg [`X_WIDTH:0] x_average;
-	reg [`Y_WIDTH:0] y_average;
+	reg [`X_WIDTH-1:0] x_average;
+	reg [`Y_WIDTH-1:0] y_average;
 
 	reg [2:0] x_draw_centroid_counter = 0, y_draw_centroid_counter = 0;
-	always @(posedge CLOCK_50)
+	always @(posedge clock)
 	begin
 		if(loadLoc == 3)
 		begin
@@ -193,7 +265,7 @@ module motionDetection(
 			vga_x <= bdiff_read_x;
 			vga_y <= bdiff_read_y;
 			// vga_colour <= bdiff_data_out;
-			if(SW[3])
+			if(enable_smoothing)
 			begin
 				if (row_curr[1] & row_above[0]
 										  & row_above[1]
@@ -267,57 +339,6 @@ module motionDetection(
 
 		end
 
-	end
-
-
-
-
-
-	always @(posedge CLOCK_50)
-	begin
-		prev_image_data_in <= pixelIn_colour;
-
-		prev_image_wraddress <= prev_image_rdaddress;
-		prev_image_rdaddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
-		bdiff_wraddress <= pixelIn_y*`IMAGE_W + pixelIn_x;
-		// prev_image_rdaddress <= pixelIn_y*360 + pixelIn_x;
-
-		if(pixelIn_en)
-		begin
-			bdiff_wr_en <= 1;
-			prev_image_wr_en <=1;
-			// vga_x <= pixelIn_x;
-			// vga_y <= pixelIn_y;
-			if(SW[2])
-			begin
-				if(prev_image_data_out != pixelIn_colour) begin
-					bdiff_data_in <= 1;
-				end
-				else
-				begin
-					bdiff_data_in <= 0;
-				end
-			end
-			else
-			begin
-				bdiff_data_in <= prev_image_data_out[displayChanel];
-			end
-
-			// if(newData != 3'b000)
-			// begin
-			// end
-			// else
-			// begin
-			// 	vga_colour <= 0;
-			// end
-		end
-		else
-		begin
-			bdiff_wr_en <= 0;
-			prev_image_wr_en <= 0;
-			// vga_x <= 0;
-			// vga_y <= 0;
-		end
 	end
 
 endmodule
