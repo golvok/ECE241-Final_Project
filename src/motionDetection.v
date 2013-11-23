@@ -231,6 +231,13 @@ module display (
 		input enable_smoothing,
 		input clock
 	);
+	localparam STATE_LOAD_CURRENT = 0;
+	localparam STATE_LOAD_BELOW = 1;
+	localparam STATE_LOAD_ABOVE = 2;
+	localparam STATE_UPDATE_INDICES = 3;
+	localparam STATE_DISPLAY = 4;
+	localparam STATE_DRAW_CENTROID = 5;
+
 	localparam DIFFERENCE_THRESHOLD = 400;
 	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display, 5 draw centroid
 	reg [2:0] row_above;
@@ -250,19 +257,19 @@ module display (
 	reg [2:0] x_draw_centroid_counter = 0, y_draw_centroid_counter = 0;
 	always @(posedge clock)
 	begin
-		if(loadLoc == 3)
+		if(loadLoc == STATE_UPDATE_INDICES)
 		begin
 			if (bdiff_read_x >= `IMAGE_W - 1 && bdiff_read_y >= `IMAGE_H - 1)
 			begin
 				if(diff_count < DIFFERENCE_THRESHOLD)
 				begin
-					loadLoc <= 4;
+					loadLoc <= STATE_DISPLAY;
 				end
 				else
 				begin
 					y_average <= (y_average*14 + 2*y_total/diff_count)/16;
 					x_average <= (x_average*14 + 2*x_total/diff_count)/16;
-					loadLoc <= 5;
+					loadLoc <= STATE_DRAW_CENTROID;
 				end
 
 				bdiff_read_y <= 1;
@@ -276,20 +283,20 @@ module display (
 			begin
 				bdiff_read_x <= 1;
 				bdiff_read_y <= bdiff_read_y + 1;
-				loadLoc <= 4;
+				loadLoc <= STATE_DISPLAY;
 				// LEDR[0] <= !LEDR[0];
 			end
 			else
 			begin
 				bdiff_read_x <= bdiff_read_x +1;
-				loadLoc <= 4;
+				loadLoc <= STATE_DISPLAY;
 			end
 
 			vga_plot <= 0;
 			bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
 
 		end
-		else if(loadLoc == 4)
+		else if(loadLoc == STATE_DISPLAY)
 		begin
 
 			vga_plot <= 1;
@@ -321,10 +328,10 @@ module display (
 
 			// checkColour <= !checkColour;
 			bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
-			loadLoc <= 0;
+			loadLoc <= STATE_LOAD_CURRENT;
 		end
 
-		else if (loadLoc == 5) begin
+		else if (loadLoc == STATE_DRAW_CENTROID) begin
 			vga_plot <= 1;
 			if (x_draw_centroid_counter < 4 && vga_x <= `IMAGE_W) begin
 				x_draw_centroid_counter <= x_draw_centroid_counter +1;
@@ -335,7 +342,7 @@ module display (
 				else begin
 					y_draw_centroid_counter <= 0;
 					x_draw_centroid_counter <= 0;
-					loadLoc <= 0;
+					loadLoc <= STATE_LOAD_CURRENT;
 				end
 			end
 			vga_colour <= 1;
@@ -347,23 +354,23 @@ module display (
 		begin
 			vga_plot <= 0;
 
-			if(loadLoc == 0)
+			if(loadLoc == STATE_LOAD_CURRENT)
 			begin
 				row_curr <= {row_curr[1:0], bdiff_data_out};
-				loadLoc <= 1;
+				loadLoc <= STATE_LOAD_BELOW;
 				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W;
 			end
 
-			else if(loadLoc == 1)
+			else if(loadLoc == STATE_LOAD_BELOW)
 			begin
 				row_above <= {row_above[1:0], bdiff_data_out};
-				loadLoc <= 2;
+				loadLoc <= STATE_LOAD_ABOVE;
 				bdiff_rdaddress <= bdiff_rdaddress + `IMAGE_W*2;
 			end
 
-			else if(loadLoc == 2)
+			else if(loadLoc == STATE_LOAD_ABOVE)
 			begin
-				loadLoc <= 3;
+				loadLoc <= STATE_UPDATE_INDICES;
 				row_below <= {row_below[1:0], bdiff_data_out};
 
 			end
