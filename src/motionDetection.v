@@ -44,6 +44,17 @@ module motionDetection(
 	wire [7:0] vga_y;
 
 	wire vga_colour;
+	reg enableClock;
+	reg [1:0]clockCount;
+
+	always @(posedge CLOCK_50)
+	begin
+		clockCount <= clockCount + 1;
+		if(clockCount[1] & clockCount[0])
+		begin
+			enableClock <= !enableClock;
+		end
+	end
 
 	Video_In vin(
 		.CLOCK_50       (CLOCK_50),
@@ -272,8 +283,8 @@ module display (
 					loadLoc <= STATE_DRAW_CENTROID;
 				end
 
-				bdiff_read_y <= 1;
-				bdiff_read_x <= 1;
+				bdiff_read_y <= 0;
+				bdiff_read_x <= 0;
 				// bdiff_read_x <= bdiff_read_x +1;
 				x_total <= 0;
 				y_total <= 0;
@@ -281,7 +292,7 @@ module display (
 			end
 			else if(bdiff_read_x >= `IMAGE_W - 1)
 			begin
-				bdiff_read_x <= 1;
+				bdiff_read_x <= 0;
 				bdiff_read_y <= bdiff_read_y + 1;
 				loadLoc <= STATE_DISPLAY;
 				// LEDR[0] <= !LEDR[0];
@@ -293,7 +304,6 @@ module display (
 			end
 
 			vga_plot <= 0;
-			bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
 
 		end
 		else if(loadLoc == STATE_DISPLAY)
