@@ -265,7 +265,23 @@ module display (
 	reg [`X_WIDTH-1:0] x_average;
 	reg [`Y_WIDTH-1:0] y_average;
 
-	reg [2:0] x_draw_centroid_counter = 0, y_draw_centroid_counter = 0;
+	wire [3:0] x_draw_centroid_offset;
+	wire [3:0] y_draw_centroid_offset;
+	wire draw_centroid_colour_out;
+	wire done_drawing_centroid;
+
+	draw_centroid dc (
+		.clock(clock),
+		.enable(loadLoc == STATE_DRAW_CENTROID),
+		.output_x(x_draw_centroid_offset),
+		.output_y(y_draw_centroid_offset),
+		.colour_out(draw_centroid_colour_out),
+		.done(done_drawing_centroid)
+	);
+
+	reg [`X_WIDTH*2-1:0] x_hold;
+	reg [`Y_WIDTH*2-1:0] y_hold;
+
 	always @(posedge clock)
 	begin
 		if(loadLoc == STATE_UPDATE_INDICES)
@@ -310,8 +326,13 @@ module display (
 		begin
 
 			vga_plot <= 1;
-			vga_x <= bdiff_read_x;
-			vga_y <= bdiff_read_y;
+
+			vga_x <= x_hold[`X_WIDTH*2-1:`X_WIDTH];
+			vga_y <= y_hold[`Y_WIDTH*2-1:`Y_WIDTH];
+
+			x_hold <= {x_hold[`X_WIDTH-1:0],bdiff_read_x};
+			y_hold <= {y_hold[`Y_WIDTH-1:0],bdiff_read_y};
+
 			// vga_colour <= bdiff_data_out;
 			if(enable_smoothing)
 			begin
@@ -342,22 +363,18 @@ module display (
 		end
 
 		else if (loadLoc == STATE_DRAW_CENTROID) begin
+
 			vga_plot <= 1;
-			if (x_draw_centroid_counter < 4 && vga_x <= `IMAGE_W) begin
-				x_draw_centroid_counter <= x_draw_centroid_counter +1;
-			end else begin
-				x_draw_centroid_counter <= 0;
-				if(y_draw_centroid_counter < 4 && vga_y <= `IMAGE_H)
-					y_draw_centroid_counter <= y_draw_centroid_counter + 1;
-				else begin
-					y_draw_centroid_counter <= 0;
-					x_draw_centroid_counter <= 0;
-					loadLoc <= STATE_LOAD_CURRENT;
-				end
-			end
-			vga_colour <= 1;
-			vga_x <= x_average + x_draw_centroid_counter;
-			vga_y <= y_average + y_draw_centroid_counter;
+
+			if(done_drawing_centroid) loadLoc <= STATE_LOAD_CURRENT;
+
+			vga_x <= x_average + x_draw_centroid_offset;
+			vga_y <= y_average + y_draw_centroid_offset;
+			// vga_x <= x_draw_centroid_offset;
+			// vga_y <= y_draw_centroid_offset;
+
+			vga_colour <= draw_centroid_colour_out;
+
 		end
 		// if(SW[5])LEDR[0] <= 0;
 		else
@@ -387,6 +404,64 @@ module display (
 
 		end
 
+	end
+
+endmodule
+
+
+module draw_centroid (
+	input clock,
+	input enable,
+	output reg [3:0] output_x,
+	output reg [3:0] output_y,
+	output reg colour_out,
+	output reg done
+	);
+
+	localparam CENTROID_IMAGE_DIM = 8;
+
+	reg	[5:0] image_rom_rdaddress;
+	wire      image_rom_data_out;
+
+	reg [7:0] x_hold;
+	reg [7:0] y_hold;
+	reg [3:0] x_offset;
+	reg [3:0] y_offset;
+
+	centroid_target_image_rom ctim(
+		.address(image_rom_rdaddress),
+		.clock(clock),
+		.q(image_rom_data_out)
+	);
+
+	always @(posedge clock) begin
+		if(enable) begin
+			if (x_offset < CENTROID_IMAGE_DIM - 1) begin
+				done <= 0;
+				x_offset <= x_offset + 1;
+				image_rom_rdaddress <= image_rom_rdaddress + 1;
+			end else begin
+				if(y_offset < CENTROID_IMAGE_DIM - 1) begin
+					done <= 0;
+					x_offset <= 0;
+					y_offset <= y_offset + 1;
+					image_rom_rdaddress <= image_rom_rdaddress + 1;
+				end else begin
+					y_offset <= 0;
+					x_offset <= 0;
+					done <= 1;
+					image_rom_rdaddress <= 0;
+				end
+			end
+			output_x <= x_hold[7:4];
+			output_y <= y_hold[7:4];
+
+			x_hold <= {x_hold[3:0],x_offset};
+			y_hold <= {y_hold[3:0],y_offset};
+
+			colour_out <= image_rom_data_out;
+			// colour_out <= 1;
+		end
 	end
 
 endmodule
