@@ -282,11 +282,13 @@ module display (
 	reg [`X_WIDTH*2-1:0] x_hold;
 	reg [`Y_WIDTH*2-1:0] y_hold;
 
+	reg set_row_address;
+
 	always @(posedge clock)
 	begin
 		if(loadLoc == STATE_UPDATE_INDICES)
 		begin
-			if (bdiff_read_x >= `IMAGE_W - 1 && bdiff_read_y >= `IMAGE_H - 1)
+			if (bdiff_read_x >= `IMAGE_W - 2 && bdiff_read_y >= `IMAGE_H - 2)
 			begin
 				if(diff_count < DIFFERENCE_THRESHOLD)
 				begin
@@ -336,15 +338,11 @@ module display (
 			// vga_colour <= bdiff_data_out;
 			if(enable_smoothing)
 			begin
-				if (row_curr[1] & row_above[0]
-										  & row_above[1]
-										  & row_above[2]
-										  & row_below[0]
-										  & row_below[1]
-										  & row_below[2]
-										  & row_curr[0]
-										  & row_curr[2] )
-				begin
+				// if ( row_above[0] ==  row_curr[0] &  row_curr[0] == row_below[0]) begin
+				if ( row_above[0] & row_above[1] & row_above[2]
+				   &  row_curr[0] &  row_curr[1] &  row_curr[2]
+				   & row_below[0] & row_below[1] & row_below[2]) begin
+
 					vga_colour <= 1;
 					diff_count <= diff_count + 1;
 					x_total <= x_total + vga_x;
@@ -354,11 +352,10 @@ module display (
 			end
 			else
 			begin
-				vga_colour <= row_curr[1];
+				vga_colour <= row_above[1];
 			end
 
 			// checkColour <= !checkColour;
-			bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
 			loadLoc <= STATE_LOAD_CURRENT;
 		end
 
@@ -383,27 +380,43 @@ module display (
 
 			if(loadLoc == STATE_LOAD_CURRENT)
 			begin
-				row_curr <= {row_curr[1:0], bdiff_data_out};
-				loadLoc <= STATE_LOAD_BELOW;
-				bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W;
+				if (!set_row_address) begin
+					bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
+					set_row_address <= 1;
+				end else begin
+					row_curr <= {row_curr[1:0], bdiff_data_out};
+					// row_curr <= 3'b111;
+					loadLoc <= STATE_LOAD_BELOW;
+					set_row_address <= 0;
+				end
 			end
 
 			else if(loadLoc == STATE_LOAD_BELOW)
 			begin
-				row_above <= {row_above[1:0], bdiff_data_out};
-				loadLoc <= STATE_LOAD_ABOVE;
-				bdiff_rdaddress <= bdiff_rdaddress + `IMAGE_W*2;
+				if (!set_row_address) begin
+					bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W;
+					set_row_address <= 1;
+				end else begin
+					row_below <= {row_below[1:0], bdiff_data_out};
+					// row_below <= 3'b111;
+					loadLoc <= STATE_LOAD_ABOVE;
+					set_row_address <= 0;
+				end
 			end
 
 			else if(loadLoc == STATE_LOAD_ABOVE)
 			begin
-				loadLoc <= STATE_UPDATE_INDICES;
-				row_below <= {row_below[1:0], bdiff_data_out};
-
+				if (!set_row_address) begin
+					bdiff_rdaddress <= bdiff_rdaddress + `IMAGE_W*2;
+					set_row_address <= 1;
+				end else begin
+					row_above <= {row_above[1:0], bdiff_data_out};
+					// row_above <= 3'b111;
+					loadLoc <= STATE_UPDATE_INDICES;
+					set_row_address <= 0;
+				end
 			end
-
 		end
-
 	end
 
 endmodule
