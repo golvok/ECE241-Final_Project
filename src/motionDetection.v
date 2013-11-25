@@ -169,7 +169,9 @@ module motionDetection(
 		.bdiff_rdaddress(bdiff_rdaddress),
 		.bdiff_data_out(bdiff_data_out),
 		.enable_smoothing(SW[3]),
-		.clock(CLOCK_50)
+		.clock(CLOCK_50),
+		.vga_vsync(VGA_VS),
+		.state(LEDR[4:0])
 	);
 
 endmodule
@@ -240,14 +242,16 @@ module display (
 		output reg [16:0] bdiff_rdaddress,
 		input bdiff_data_out,
 		input enable_smoothing,
-		input clock
+		input clock,
+		input vga_vsync
 	);
-	localparam STATE_LOAD_CURRENT = 0;
-	localparam STATE_LOAD_BELOW = 1;
-	localparam STATE_LOAD_ABOVE = 2;
-	localparam STATE_UPDATE_INDICES = 3;
-	localparam STATE_DISPLAY = 4;
-	localparam STATE_DRAW_CENTROID = 5;
+	localparam STATE_WAIT_FOR_FRAME = 0;
+	localparam STATE_LOAD_CURRENT 	= 1;
+	localparam STATE_LOAD_BELOW 	= 2;
+	localparam STATE_LOAD_ABOVE 	= 3;
+	localparam STATE_UPDATE_INDICES = 4;
+	localparam STATE_DISPLAY 		= 5;
+	localparam STATE_DRAW_CENTROID 	= 6;
 
 	localparam DIFFERENCE_THRESHOLD = 400;
 	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display, 5 draw centroid
@@ -286,7 +290,13 @@ module display (
 
 	always @(posedge clock)
 	begin
-		if(loadLoc == STATE_UPDATE_INDICES)
+		if(loadLoc == STATE_WAIT_FOR_FRAME) begin
+			vga_plot <= 0;
+			if (!vga_vsync) begin
+				loadLoc <= STATE_UPDATE_INDICES;
+			end
+		end
+		else if(loadLoc == STATE_UPDATE_INDICES)
 		begin
 			if (bdiff_read_x >= `IMAGE_W - 2 && bdiff_read_y >= `IMAGE_H - 2)
 			begin
@@ -352,7 +362,7 @@ module display (
 			end
 			else
 			begin
-				vga_colour <= row_above[1];
+				vga_colour <= row_curr[1];
 			end
 
 			// checkColour <= !checkColour;
@@ -363,7 +373,7 @@ module display (
 
 			vga_plot <= 1;
 
-			if(done_drawing_centroid) loadLoc <= STATE_LOAD_CURRENT;
+			if(done_drawing_centroid) loadLoc <= STATE_WAIT_FOR_FRAME;
 
 			vga_x <= x_average + x_draw_centroid_offset;
 			vga_y <= y_average + y_draw_centroid_offset;
