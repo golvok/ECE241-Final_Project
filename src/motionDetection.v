@@ -404,7 +404,7 @@ module display (
 			else if(loadLoc == STATE_LOAD_BELOW)
 			begin
 				if (!set_row_address) begin
-					bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W;
+					bdiff_rdaddress <= bdiff_rdaddress + `IMAGE_W*2 ;
 					set_row_address <= 1;
 				end else begin
 					row_below <= {row_below[1:0], bdiff_data_out};
@@ -417,7 +417,7 @@ module display (
 			else if(loadLoc == STATE_LOAD_ABOVE)
 			begin
 				if (!set_row_address) begin
-					bdiff_rdaddress <= bdiff_rdaddress + `IMAGE_W*2;
+					bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W + 1;
 					set_row_address <= 1;
 				end else begin
 					row_above <= {row_above[1:0], bdiff_data_out};
