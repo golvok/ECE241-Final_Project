@@ -306,8 +306,8 @@ module display (
 				end
 				else
 				begin
-					y_average <= (y_average*14 + 2*y_total/diff_count)/16;
-					x_average <= (x_average*14 + 2*x_total/diff_count)/16;
+					y_average <= (y_average*10 + 6*y_total/diff_count)/16;
+					x_average <= (x_average*10 + 6*x_total/diff_count)/16;
 					loadLoc <= STATE_DRAW_CENTROID;
 				end
 
