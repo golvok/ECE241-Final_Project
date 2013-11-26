@@ -27,7 +27,7 @@ module motionDetection(
 	output          I2C_SCLK,
 	inout           I2C_SDAT,
 	input [17:0]SW,
-	output reg [17:0] LEDR
+	output [17:0] LEDR
 	);
 
 
@@ -46,6 +46,9 @@ module motionDetection(
 	wire vga_colour;
 	reg enableClock;
 	reg [1:0]clockCount;
+
+
+	assign LEDR[5] = 1;
 
 	always @(posedge CLOCK_50)
 	begin
@@ -245,7 +248,8 @@ module display (
 		input enable_smoothing,
 		input show_history,
 		input clock,
-		input vga_vsync
+		input vga_vsync,
+		output [4:0]state
 	);
 	localparam STATE_WAIT_FOR_FRAME = 0;
 	localparam STATE_LOAD_CURRENT 	= 1;
@@ -258,6 +262,11 @@ module display (
 	localparam DIFFERENCE_THRESHOLD = 400;
 	localparam HISTORY_DIM_DIVISOR = 4;
 	localparam CENTROID_IMAGE_DIM = 8;
+
+
+	assign state[3:0] = loadLoc;
+	assign state[4] = done_drawing_centroid;
+	reg [3:0] loadLoc;
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
 	reg [2:0] row_below;
