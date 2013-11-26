@@ -258,8 +258,10 @@ module display (
 	localparam STATE_UPDATE_INDICES = 4;
 	localparam STATE_DISPLAY 		= 5;
 	localparam STATE_DRAW_CENTROID 	= 6;
+	localparam STATE_DRAW_HIST      = 7;
 
 	localparam DIFFERENCE_THRESHOLD = 400;
+
 	localparam HISTORY_DIM_DIVISOR = 4;
 	localparam CENTROID_IMAGE_DIM = 8;
 
@@ -295,6 +297,21 @@ module display (
 		.done(done_drawing_centroid)
 	);
 	defparam dc.CENTROID_IMAGE_DIM = CENTROID_IMAGE_DIM;
+
+	wire [`X_WIDTH-1:0] hist_x_offset;
+	wire [`Y_WIDTH-1:0] hist_y_offset;
+	wire hist_done;
+
+	draw_history dh(
+		.clock(clock),
+		.enable(loadLoc == STATE_DRAW_HIST),
+		.centroid_in_x(x_average),
+		.centroid_in_y(y_average),
+		.offset_x(hist_x_offset),
+		.offset_y(hist_y_offset),
+		.done(hist_done)
+	);
+	defparam dh.HISTORY_DIM_DIVISOR = HISTORY_DIM_DIVISOR;
 
 	reg [`X_WIDTH*2-1:0] x_hold;
 	reg [`Y_WIDTH*2-1:0] y_hold;
@@ -369,12 +386,13 @@ module display (
 			y_hold <= {y_hold[`Y_WIDTH-1:0],bdiff_read_y};
 
 			// vga_colour <= bdiff_data_out;
+
 			if(enable_smoothing)
 			begin
 				if((x_hold[`X_WIDTH*2 - 1:`X_WIDTH] == (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR + 1)
-				 || y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] == `IMAGE_H/HISTORY_DIM_DIVISOR - 1) &&
+				 || y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] ==  `IMAGE_H - `IMAGE_H/HISTORY_DIM_DIVISOR + 1) &&
 					show_history && x_hold[`X_WIDTH*2 - 1:`X_WIDTH] > (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR)
-								 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] < `IMAGE_H/HISTORY_DIM_DIVISOR) begin
+								 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] >  `IMAGE_H - `IMAGE_H/HISTORY_DIM_DIVISOR) begin
 					vga_colour <= 1;
 				end
 				else if ( row_above[0] & row_above[1] & row_above[2]
@@ -382,7 +400,7 @@ module display (
 						& row_below[0] & row_below[1] & row_below[2]) begin
 
 					if (show_history && x_hold[`X_WIDTH*2 - 1:`X_WIDTH] > (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR)
-									 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] < `IMAGE_H/HISTORY_DIM_DIVISOR) begin
+									 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] >  `IMAGE_H - `IMAGE_H/HISTORY_DIM_DIVISOR) begin
 							vga_colour <= 0;
 					end
 					else begin
@@ -394,6 +412,7 @@ module display (
 					y_total <= y_total + vga_y;
 				end
 				else vga_colour <=0;
+				// vga_colour <= row_above[1];
 			end
 			else
 			begin
@@ -408,7 +427,7 @@ module display (
 
 			vga_plot <= 1;
 
-			if(done_drawing_centroid) loadLoc <= STATE_WAIT_FOR_FRAME;
+			if(done_drawing_centroid) loadLoc <= STATE_DRAW_HIST;
 
 			vga_x <= x_average + x_draw_centroid_offset;
 			vga_y <= y_average + y_draw_centroid_offset;
@@ -416,6 +435,18 @@ module display (
 			// vga_y <= y_draw_centroid_offset;
 
 			vga_colour <= draw_centroid_colour_out;
+
+		end
+		else if (loadLoc == STATE_DRAW_HIST) begin
+
+			vga_plot <= 1;
+
+			if(hist_done) loadLoc <= STATE_WAIT_FOR_FRAME;
+
+			vga_x <= `IMAGE_W - (`IMAGE_W/HISTORY_DIM_DIVISOR) + hist_x_offset;
+			vga_y <= `IMAGE_H - (`IMAGE_H/HISTORY_DIM_DIVISOR) + hist_y_offset;
+
+			vga_colour <= 1;
 
 		end
 		// if(SW[5])LEDR[0] <= 0;
@@ -463,7 +494,6 @@ module display (
 			end
 		end
 	end
-
 endmodule
 
 
@@ -519,6 +549,51 @@ module draw_centroid (
 
 			colour_out <= image_rom_data_out;
 			// colour_out <= 1;
+		end
+	end
+endmodule
+
+module draw_history(
+	input clock,
+	input enable,
+	input [`X_WIDTH-1:0] centroid_in_x,
+	input [`Y_WIDTH-1:0] centroid_in_y,
+	output reg [X_OFFSET_WIDTH-1:0] offset_x,
+	output reg [Y_OFFSET_WIDTH-1:0] offset_y,
+	output reg done
+	);
+
+	localparam NUM_HISTORY_POINTS = 10;
+	localparam X_OFFSET_WIDTH = `X_WIDTH - 2;//2 = log(HISTORY_DIM_DIVISOR)
+	localparam Y_OFFSET_WIDTH = `Y_WIDTH - 2;
+	parameter HISTORY_DIM_DIVISOR;
+
+	reg [X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_xes;
+	reg [Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_ys;
+	reg [3:0] counter;
+
+	always @(posedge clock) begin
+		if (enable) begin
+			if (counter == NUM_HISTORY_POINTS+1) begin
+				counter <= 0;
+				done <= 1;
+			end else begin
+				done <= 0;
+				if (counter == 0) begin
+					old_xes <= {old_xes[X_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0],centroid_in_x/HISTORY_DIM_DIVISOR};
+					old_ys  <= { old_ys[Y_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0],centroid_in_y/HISTORY_DIM_DIVISOR};
+				end else begin
+					// old_xes <= {old_xes[X_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0],old_xes[X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:X_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1)]};
+					// old_ys  <= { old_ys[Y_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0], old_ys[Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:Y_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1)]};
+					old_xes <= {old_xes[X_OFFSET_WIDTH:0], old_xes[X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:X_OFFSET_WIDTH]};
+					old_ys <= {old_ys[Y_OFFSET_WIDTH:0], old_ys[Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:Y_OFFSET_WIDTH]};
+					offset_x <= old_xes[X_OFFSET_WIDTH-1:0];
+					offset_y <=  old_ys[Y_OFFSET_WIDTH-1:0];
+					// offset_x <= 5;
+					// offset_y <=  5;
+				end
+				counter <= counter + 1;
+			end
 		end
 	end
 
