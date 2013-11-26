@@ -566,7 +566,7 @@ module draw_history(
 	localparam NUM_HISTORY_POINTS = 10;
 	localparam X_OFFSET_WIDTH = `X_WIDTH - 2;//2 = log(HISTORY_DIM_DIVISOR)
 	localparam Y_OFFSET_WIDTH = `Y_WIDTH - 2;
-	parameter HISTORY_DIM_DIVISOR;
+	parameter HISTORY_DIM_DIVISOR = 4;
 
 	reg [X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_xes;
 	reg [Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_ys;
@@ -580,15 +580,15 @@ module draw_history(
 			end else begin
 				done <= 0;
 				if (counter == 0) begin
-					old_xes <= {old_xes[X_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0],centroid_in_x/HISTORY_DIM_DIVISOR};
-					old_ys  <= { old_ys[Y_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0],centroid_in_y/HISTORY_DIM_DIVISOR};
+					old_xes <= old_xes<<X_OFFSET_WIDTH;
+					old_xes [X_OFFSET_WIDTH-1:0] <= centroid_in_x>>2;
+					 old_ys <= old_ys<<Y_OFFSET_WIDTH;
+					 old_ys [Y_OFFSET_WIDTH-1:0] <= centroid_in_y>>2;
 				end else begin
-					// old_xes <= {old_xes[X_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0],old_xes[X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:X_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1)]};
-					// old_ys  <= { old_ys[Y_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1) - 1:0], old_ys[Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:Y_OFFSET_WIDTH*(NUM_HISTORY_POINTS-1)]};
-					old_xes <= {old_xes[X_OFFSET_WIDTH:0], old_xes[X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:X_OFFSET_WIDTH]};
-					old_ys <= {old_ys[Y_OFFSET_WIDTH:0], old_ys[Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:Y_OFFSET_WIDTH]};
-					offset_x <= old_xes[X_OFFSET_WIDTH-1:0];
-					offset_y <=  old_ys[Y_OFFSET_WIDTH-1:0];
+					// old_xes <= {old_xes[X_OFFSET_WIDTH:0], old_xes[X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:X_OFFSET_WIDTH]};
+					// old_ys <= {old_ys[Y_OFFSET_WIDTH:0], old_ys[Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:Y_OFFSET_WIDTH]};
+					offset_x <= old_xes[X_OFFSET_WIDTH*(counter-1) +:X_OFFSET_WIDTH];
+					offset_y <=  old_ys[Y_OFFSET_WIDTH*(counter-1) +:Y_OFFSET_WIDTH];
 					// offset_x <= 5;
 					// offset_y <=  5;
 				end
