@@ -169,6 +169,7 @@ module motionDetection(
 		.bdiff_rdaddress(bdiff_rdaddress),
 		.bdiff_data_out(bdiff_data_out),
 		.enable_smoothing(SW[3]),
+		.show_history(SW[4]),
 		.clock(CLOCK_50),
 		.vga_vsync(VGA_VS),
 		.state(LEDR[4:0])
@@ -242,6 +243,7 @@ module display (
 		output reg [16:0] bdiff_rdaddress,
 		input bdiff_data_out,
 		input enable_smoothing,
+		input show_history,
 		input clock,
 		input vga_vsync
 	);
@@ -254,7 +256,8 @@ module display (
 	localparam STATE_DRAW_CENTROID 	= 6;
 
 	localparam DIFFERENCE_THRESHOLD = 400;
-	reg [3:0] loadLoc; //3 load, 0,1,2 shift, 4 display, 5 draw centroid
+	localparam HISTORY_DIM_DIVISOR = 4;
+	localparam CENTROID_IMAGE_DIM = 8;
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
 	reg [2:0] row_below;
@@ -282,6 +285,7 @@ module display (
 		.colour_out(draw_centroid_colour_out),
 		.done(done_drawing_centroid)
 	);
+	defparam dc.CENTROID_IMAGE_DIM = CENTROID_IMAGE_DIM;
 
 	reg [`X_WIDTH*2-1:0] x_hold;
 	reg [`Y_WIDTH*2-1:0] y_hold;
@@ -337,7 +341,17 @@ module display (
 		else if(loadLoc == STATE_DISPLAY)
 		begin
 
-			vga_plot <= 1;
+			//prevent drawing over the centroid
+			if(!enable_smoothing || (
+				  (x_hold[`X_WIDTH*2-1:`X_WIDTH] < x_average
+				|| x_hold[`X_WIDTH*2-1:`X_WIDTH] >= x_average + CENTROID_IMAGE_DIM)
+
+				|| (y_hold[`Y_WIDTH*2-1:`Y_WIDTH] < y_average
+				|| y_hold[`Y_WIDTH*2-1:`Y_WIDTH] >= y_average + CENTROID_IMAGE_DIM))
+			)
+			begin
+				vga_plot <= 1;
+			end
 
 			vga_x <= x_hold[`X_WIDTH*2-1:`X_WIDTH];
 			vga_y <= y_hold[`Y_WIDTH*2-1:`Y_WIDTH];
@@ -348,12 +362,24 @@ module display (
 			// vga_colour <= bdiff_data_out;
 			if(enable_smoothing)
 			begin
-				// if ( row_above[0] ==  row_curr[0] &  row_curr[0] == row_below[0]) begin
-				if ( row_above[0] & row_above[1] & row_above[2]
-				   &  row_curr[0] &  row_curr[1] &  row_curr[2]
-				   & row_below[0] & row_below[1] & row_below[2]) begin
-
+				if((x_hold[`X_WIDTH*2 - 1:`X_WIDTH] == (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR + 1)
+				 || y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] == `IMAGE_H/HISTORY_DIM_DIVISOR - 1) &&
+					show_history && x_hold[`X_WIDTH*2 - 1:`X_WIDTH] > (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR)
+								 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] < `IMAGE_H/HISTORY_DIM_DIVISOR) begin
 					vga_colour <= 1;
+				end
+				else if ( row_above[0] & row_above[1] & row_above[2]
+						&  row_curr[0] &  row_curr[1] &  row_curr[2]
+						& row_below[0] & row_below[1] & row_below[2]) begin
+
+					if (show_history && x_hold[`X_WIDTH*2 - 1:`X_WIDTH] > (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR)
+									 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] < `IMAGE_H/HISTORY_DIM_DIVISOR) begin
+							vga_colour <= 0;
+					end
+					else begin
+						vga_colour <= 1;
+					end
+
 					diff_count <= diff_count + 1;
 					x_total <= x_total + vga_x;
 					y_total <= y_total + vga_y;
@@ -441,7 +467,7 @@ module draw_centroid (
 	output reg done
 	);
 
-	localparam CENTROID_IMAGE_DIM = 8;
+	parameter CENTROID_IMAGE_DIM;
 
 	reg	[5:0] image_rom_rdaddress;
 	wire      image_rom_data_out;
