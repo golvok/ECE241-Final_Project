@@ -644,14 +644,16 @@ module draw_history(
 	output reg done
 	);
 
-	localparam NUM_HISTORY_POINTS = 10;
+	localparam NUM_HISTORY_POINTS = 20;
+	localparam HISTORY_POINTS_COUNTER_SIZE = 5;//needs to hold NUM_HISTORY_POINTS + 1
+
 	localparam X_OFFSET_WIDTH = `X_WIDTH - 2;//2 = log(HISTORY_DIM_DIVISOR)
 	localparam Y_OFFSET_WIDTH = `Y_WIDTH - 2;
 	parameter HISTORY_DIM_DIVISOR = 4;
 
 	reg [X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_xes;
 	reg [Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_ys;
-	reg [3:0] counter;
+	reg [HISTORY_POINTS_COUNTER_SIZE-1:0] counter;
 
 	always @(posedge clock) begin
 		if (enable) begin
@@ -666,12 +668,8 @@ module draw_history(
 					 old_ys <= old_ys<<Y_OFFSET_WIDTH;
 					 old_ys [Y_OFFSET_WIDTH-1:0] <= centroid_in_y>>2;
 				end else begin
-					// old_xes <= {old_xes[X_OFFSET_WIDTH:0], old_xes[X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:X_OFFSET_WIDTH]};
-					// old_ys <= {old_ys[Y_OFFSET_WIDTH:0], old_ys[Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:Y_OFFSET_WIDTH]};
 					offset_x <= old_xes[X_OFFSET_WIDTH*(counter-1) +:X_OFFSET_WIDTH];
 					offset_y <=  old_ys[Y_OFFSET_WIDTH*(counter-1) +:Y_OFFSET_WIDTH];
-					// offset_x <= 5;
-					// offset_y <=  5;
 				end
 				counter <= counter + 1;
 			end
