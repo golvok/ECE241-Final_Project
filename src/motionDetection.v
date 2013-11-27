@@ -45,19 +45,8 @@ module motionDetection(
 
 	wire vga_colour;
 	reg enableClock;
-	reg [1:0]clockCount;
-
 
 	assign LEDR[5] = 1;
-
-	always @(posedge CLOCK_50)
-	begin
-		clockCount <= clockCount + 1;
-		if(clockCount[1] & clockCount[0])
-		begin
-			enableClock <= !enableClock;
-		end
-	end
 
 	Video_In vin(
 		.CLOCK_50       (CLOCK_50),
@@ -251,14 +240,15 @@ module display (
 		input vga_vsync,
 		output [4:0]state
 	);
-	localparam STATE_WAIT_FOR_FRAME = 0;
-	localparam STATE_LOAD_CURRENT 	= 1;
-	localparam STATE_LOAD_BELOW 	= 2;
-	localparam STATE_LOAD_ABOVE 	= 3;
-	localparam STATE_UPDATE_INDICES = 4;
-	localparam STATE_DISPLAY 		= 5;
-	localparam STATE_DRAW_CENTROID 	= 6;
-	localparam STATE_DRAW_HIST      = 7;
+	localparam STATE_WAIT_FOR_FRAME     = 0;
+	localparam STATE_LOAD_CURRENT 	    = 1;
+	localparam STATE_LOAD_BELOW 	    = 2;
+	localparam STATE_LOAD_ABOVE 	    = 3;
+	localparam STATE_UPDATE_INDICES     = 4;
+	localparam STATE_DISPLAY 		    = 5;
+	localparam STATE_CALCULATE_CENTROID = 6;
+	localparam STATE_DRAW_CENTROID 	    = 7;
+	localparam STATE_DRAW_HIST          = 8;
 
 	localparam DIFFERENCE_THRESHOLD = 400;
 
@@ -266,9 +256,9 @@ module display (
 	localparam CENTROID_IMAGE_DIM = 8;
 
 
-	assign state[3:0] = loadLoc;
-	assign state[4] = done_drawing_centroid;
-	reg [3:0] loadLoc;
+	assign state[4:0] = loadLoc;
+	// assign state[4] = done_drawing_centroid;
+	reg [4:0] loadLoc;
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
 	reg [2:0] row_below;
@@ -282,6 +272,28 @@ module display (
 	reg [16:0] diff_count;
 	reg [`X_WIDTH-1:0] x_average;
 	reg [`Y_WIDTH-1:0] y_average;
+
+	wire [`X_WIDTH-1:0] new_centroid_x;
+	wire [`Y_WIDTH-1:0] new_centroid_y;
+	wire done_calculating_centroid;
+
+	calculate_centroid cc(
+		.clock_in(clock),
+		.enable(loadLoc == STATE_CALCULATE_CENTROID),
+		.previous_centroid_x(x_average),
+		.previous_centroid_y(y_average),
+		.total_x(x_total),
+		.total_y(y_total),
+		.diff_count(diff_count),
+		// .previous_centroid_x(100),
+		// .previous_centroid_y(100),
+		// .total_x(1000),
+		// .total_y(1000),
+		// .diff_count(10),
+		.centroid_x(new_centroid_x),
+		.centroid_y(new_centroid_y),
+		.done(done_calculating_centroid)
+	);
 
 	wire [3:0] x_draw_centroid_offset;
 	wire [3:0] y_draw_centroid_offset;
@@ -333,20 +345,18 @@ module display (
 				if(diff_count < DIFFERENCE_THRESHOLD)
 				begin
 					loadLoc <= STATE_DISPLAY;
+					x_total <= 0;
+					y_total <= 0;
+					diff_count <= 0;
 				end
 				else
 				begin
-					y_average <= (y_average*10 + 6*y_total/diff_count)/16;
-					x_average <= (x_average*10 + 6*x_total/diff_count)/16;
-					loadLoc <= STATE_DRAW_CENTROID;
+					loadLoc <= STATE_CALCULATE_CENTROID;
 				end
 
 				bdiff_read_y <= 0;
 				bdiff_read_x <= 0;
 				// bdiff_read_x <= bdiff_read_x +1;
-				x_total <= 0;
-				y_total <= 0;
-				diff_count <= 0;
 			end
 			else if(bdiff_read_x >= `IMAGE_W - 1)
 			begin
@@ -422,7 +432,16 @@ module display (
 			// checkColour <= !checkColour;
 			loadLoc <= STATE_LOAD_CURRENT;
 		end
-
+		else if (loadLoc == STATE_CALCULATE_CENTROID) begin
+			if(done_calculating_centroid) begin
+				loadLoc <= STATE_DRAW_CENTROID;
+				x_average <= new_centroid_x;
+				y_average <= new_centroid_y;
+				x_total <= 0;
+				y_total <= 0;
+				diff_count <= 0;
+			end
+		end
 		else if (loadLoc == STATE_DRAW_CENTROID) begin
 
 			vga_plot <= 1;
@@ -495,6 +514,68 @@ module display (
 		end
 	end
 endmodule
+
+module calculate_centroid (
+	input clock_in,
+	input enable,
+	input [`X_WIDTH-1:0] previous_centroid_x,
+	input [`Y_WIDTH-1:0] previous_centroid_y,
+	input [23:0] total_x,
+	input [23:0] total_y,
+	input [16:0] diff_count,
+	output reg [`X_WIDTH-1:0] centroid_x,
+	output reg [`Y_WIDTH-1:0] centroid_y,
+	output reg done
+	);
+
+	wire slow_clock;
+	reg set_outputs;
+	reg get_data;
+
+	quarter_speed_clock qsc(
+		.clock_in(clock_in),
+		.clock_out(slow_clock)
+	);
+
+	always @(posedge slow_clock) begin
+		if (enable) begin
+			if (set_outputs) begin
+				done <= 1;
+				set_outputs <= 0;
+				get_data <= 0;
+			end else if(get_data) begin
+
+				centroid_y <= (centroid_y*10 + 6*total_y/diff_count)/16;
+				centroid_x <= (centroid_x*10 + 6*total_x/diff_count)/16;
+
+				set_outputs <= 1;
+				get_data <= 0;
+			end else begin
+				get_data <= 1;
+			end
+		end else begin
+			set_outputs <= 0;
+			get_data <= 0;
+			done <= 0;
+		end
+	end
+
+ endmodule
+
+module quarter_speed_clock(input clock_in, output reg clock_out);
+
+	reg [1:0]clockCount;
+
+	always @(posedge clock_in) begin
+		clockCount <= clockCount + 1;
+
+		if(clockCount[1] & clockCount[0]) begin
+			clock_out <= !clock_out;
+		end
+	end
+
+endmodule
+
 
 
 module draw_centroid (
