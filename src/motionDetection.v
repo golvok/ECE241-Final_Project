@@ -529,7 +529,6 @@ module calculate_centroid (
 	);
 
 	wire slow_clock;
-	reg get_data;
 
 	quarter_speed_clock qsc(
 		.clock_in(clock_in),
@@ -538,18 +537,12 @@ module calculate_centroid (
 
 	always @(posedge slow_clock) begin
 		if (enable) begin
-			if(get_data) begin
 
-				centroid_y <= (centroid_y*10 + 6*total_y/diff_count)/16;
-				centroid_x <= (centroid_x*10 + 6*total_x/diff_count)/16;
+			centroid_y <= (centroid_y*10 + 6*total_y/diff_count)/16;
+			centroid_x <= (centroid_x*10 + 6*total_x/diff_count)/16;
+			done <= 1;
 
-				get_data <= 0;
-				done <= 1;
-			end else begin
-				get_data <= 1;
-			end
 		end else begin
-			get_data <= 0;
 			done <= 0;
 		end
 	end
