@@ -164,7 +164,7 @@ module motionDetection(
 		.show_history(SW[4]),
 		.clock(CLOCK_50),
 		.vga_vsync(VGA_VS),
-		.state(LEDR[4:0])
+		.state_out(LEDR[4:0])
 	);
 
 endmodule
@@ -238,7 +238,7 @@ module display (
 		input show_history,
 		input clock,
 		input vga_vsync,
-		output [4:0]state
+		output [4:0]state_out
 	);
 	localparam STATE_WAIT_FOR_FRAME     = 0;
 	localparam STATE_LOAD_CURRENT 	    = 1;
@@ -256,9 +256,9 @@ module display (
 	localparam CENTROID_IMAGE_DIM = 8;
 
 
-	assign state[4:0] = loadLoc;
+	assign state_out[4:0] = draw_state;
 	// assign state[4] = done_drawing_centroid;
-	reg [4:0] loadLoc;
+	reg [4:0] draw_state;
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
 	reg [2:0] row_below;
@@ -279,17 +279,10 @@ module display (
 
 	calculate_centroid cc(
 		.clock_in(clock),
-		.enable(loadLoc == STATE_CALCULATE_CENTROID),
-		.previous_centroid_x(x_average),
-		.previous_centroid_y(y_average),
+		.enable(draw_state == STATE_CALCULATE_CENTROID),
 		.total_x(x_total),
 		.total_y(y_total),
 		.diff_count(diff_count),
-		// .previous_centroid_x(100),
-		// .previous_centroid_y(100),
-		// .total_x(1000),
-		// .total_y(1000),
-		// .diff_count(10),
 		.centroid_x(new_centroid_x),
 		.centroid_y(new_centroid_y),
 		.done(done_calculating_centroid)
@@ -302,7 +295,7 @@ module display (
 
 	draw_centroid dc (
 		.clock(clock),
-		.enable(loadLoc == STATE_DRAW_CENTROID),
+		.enable(draw_state == STATE_DRAW_CENTROID),
 		.output_x(x_draw_centroid_offset),
 		.output_y(y_draw_centroid_offset),
 		.colour_out(draw_centroid_colour_out),
@@ -316,7 +309,7 @@ module display (
 
 	draw_history dh(
 		.clock(clock),
-		.enable(loadLoc == STATE_DRAW_HIST),
+		.enable(draw_state == STATE_DRAW_HIST),
 		.centroid_in_x(x_average),
 		.centroid_in_y(y_average),
 		.offset_x(hist_x_offset),
@@ -332,26 +325,26 @@ module display (
 
 	always @(posedge clock)
 	begin
-		if(loadLoc == STATE_WAIT_FOR_FRAME) begin
+		if(draw_state == STATE_WAIT_FOR_FRAME) begin
 			vga_plot <= 0;
 			if (!vga_vsync) begin
-				loadLoc <= STATE_UPDATE_INDICES;
+				draw_state <= STATE_UPDATE_INDICES;
 			end
 		end
-		else if(loadLoc == STATE_UPDATE_INDICES)
+		else if(draw_state == STATE_UPDATE_INDICES)
 		begin
 			if (bdiff_read_x >= `IMAGE_W - 2 && bdiff_read_y >= `IMAGE_H - 2)
 			begin
 				if(diff_count < DIFFERENCE_THRESHOLD)
 				begin
-					loadLoc <= STATE_DISPLAY;
+					draw_state <= STATE_DISPLAY;
 					x_total <= 0;
 					y_total <= 0;
 					diff_count <= 0;
 				end
 				else
 				begin
-					loadLoc <= STATE_CALCULATE_CENTROID;
+					draw_state <= STATE_CALCULATE_CENTROID;
 				end
 
 				bdiff_read_y <= 0;
@@ -362,19 +355,19 @@ module display (
 			begin
 				bdiff_read_x <= 0;
 				bdiff_read_y <= bdiff_read_y + 1;
-				loadLoc <= STATE_DISPLAY;
+				draw_state <= STATE_DISPLAY;
 				// LEDR[0] <= !LEDR[0];
 			end
 			else
 			begin
 				bdiff_read_x <= bdiff_read_x +1;
-				loadLoc <= STATE_DISPLAY;
+				draw_state <= STATE_DISPLAY;
 			end
 
 			vga_plot <= 0;
 
 		end
-		else if(loadLoc == STATE_DISPLAY)
+		else if(draw_state == STATE_DISPLAY)
 		begin
 
 			//prevent drawing over the centroid
@@ -430,11 +423,11 @@ module display (
 			end
 
 			// checkColour <= !checkColour;
-			loadLoc <= STATE_LOAD_CURRENT;
+			draw_state <= STATE_LOAD_CURRENT;
 		end
-		else if (loadLoc == STATE_CALCULATE_CENTROID) begin
+		else if (draw_state == STATE_CALCULATE_CENTROID) begin
 			if(done_calculating_centroid) begin
-				loadLoc <= STATE_DRAW_CENTROID;
+				draw_state <= STATE_DRAW_CENTROID;
 				x_average <= new_centroid_x;
 				y_average <= new_centroid_y;
 				x_total <= 0;
@@ -442,11 +435,11 @@ module display (
 				diff_count <= 0;
 			end
 		end
-		else if (loadLoc == STATE_DRAW_CENTROID) begin
+		else if (draw_state == STATE_DRAW_CENTROID) begin
 
 			vga_plot <= 1;
 
-			if(done_drawing_centroid) loadLoc <= STATE_DRAW_HIST;
+			if(done_drawing_centroid) draw_state <= STATE_DRAW_HIST;
 
 			vga_x <= x_average + x_draw_centroid_offset;
 			vga_y <= y_average + y_draw_centroid_offset;
@@ -456,11 +449,11 @@ module display (
 			vga_colour <= draw_centroid_colour_out;
 
 		end
-		else if (loadLoc == STATE_DRAW_HIST) begin
+		else if (draw_state == STATE_DRAW_HIST) begin
 
 			vga_plot <= 1;
 
-			if(hist_done) loadLoc <= STATE_WAIT_FOR_FRAME;
+			if(hist_done) draw_state <= STATE_WAIT_FOR_FRAME;
 
 			vga_x <= `IMAGE_W - (`IMAGE_W/HISTORY_DIM_DIVISOR) + hist_x_offset;
 			vga_y <= `IMAGE_H - (`IMAGE_H/HISTORY_DIM_DIVISOR) + hist_y_offset;
@@ -473,7 +466,7 @@ module display (
 		begin
 			vga_plot <= 0;
 
-			if(loadLoc == STATE_LOAD_CURRENT)
+			if(draw_state == STATE_LOAD_CURRENT)
 			begin
 				if (!set_row_address) begin
 					bdiff_rdaddress <= bdiff_read_y*`IMAGE_W + bdiff_read_x;
@@ -481,12 +474,12 @@ module display (
 				end else begin
 					row_curr <= {row_curr[1:0], bdiff_data_out};
 					// row_curr <= 3'b111;
-					loadLoc <= STATE_LOAD_BELOW;
+					draw_state <= STATE_LOAD_BELOW;
 					set_row_address <= 0;
 				end
 			end
 
-			else if(loadLoc == STATE_LOAD_BELOW)
+			else if(draw_state == STATE_LOAD_BELOW)
 			begin
 				if (!set_row_address) begin
 					bdiff_rdaddress <= bdiff_rdaddress + `IMAGE_W*2 ;
@@ -494,12 +487,12 @@ module display (
 				end else begin
 					row_below <= {row_below[1:0], bdiff_data_out};
 					// row_below <= 3'b111;
-					loadLoc <= STATE_LOAD_ABOVE;
+					draw_state <= STATE_LOAD_ABOVE;
 					set_row_address <= 0;
 				end
 			end
 
-			else if(loadLoc == STATE_LOAD_ABOVE)
+			else if(draw_state == STATE_LOAD_ABOVE)
 			begin
 				if (!set_row_address) begin
 					bdiff_rdaddress <= bdiff_rdaddress - `IMAGE_W + 1;
@@ -507,7 +500,7 @@ module display (
 				end else begin
 					row_above <= {row_above[1:0], bdiff_data_out};
 					// row_above <= 3'b111;
-					loadLoc <= STATE_UPDATE_INDICES;
+					draw_state <= STATE_UPDATE_INDICES;
 					set_row_address <= 0;
 				end
 			end
@@ -518,8 +511,6 @@ endmodule
 module calculate_centroid (
 	input clock_in,
 	input enable,
-	input [`X_WIDTH-1:0] previous_centroid_x,
-	input [`Y_WIDTH-1:0] previous_centroid_y,
 	input [23:0] total_x,
 	input [23:0] total_y,
 	input [16:0] diff_count,
