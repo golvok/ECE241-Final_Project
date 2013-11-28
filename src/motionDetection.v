@@ -439,7 +439,13 @@ module display (
 
 			vga_plot <= 1;
 
-			if(done_drawing_centroid) draw_state <= STATE_DRAW_HIST;
+			if (done_drawing_centroid) begin
+				if (show_history) begin
+					draw_state <= STATE_DRAW_HIST;
+				end else begin
+					draw_state <= STATE_WAIT_FOR_FRAME;
+				end
+			end
 
 			vga_x <= x_average + x_draw_centroid_offset;
 			vga_y <= y_average + y_draw_centroid_offset;
