@@ -515,6 +515,9 @@ module display (
 	end
 endmodule
 
+/*
+ * Works at a slower clock, and calculates the centroid.
+ */
 module calculate_centroid (
 	input clock_in,
 	input enable,
@@ -562,7 +565,9 @@ module quarter_speed_clock(input clock_in, output reg clock_out);
 endmodule
 
 
-
+/*
+ * Reads a square icon from a ROM, and outputs the offset and colour.
+ */
 module draw_centroid (
 	input clock,
 	input enable,
@@ -610,6 +615,8 @@ module draw_centroid (
 			output_x <= x_hold[7:4];
 			output_y <= y_hold[7:4];
 
+			// offset the position output, to make it line up with the colour output,
+			// as there is a 3 clock cycle delay between request and retreival
 			x_hold <= {x_hold[3:0],x_offset};
 			y_hold <= {y_hold[3:0],y_offset};
 
