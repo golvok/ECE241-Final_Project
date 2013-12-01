@@ -619,6 +619,10 @@ module draw_centroid (
 	end
 endmodule
 
+/*
+ * Saves a NUM_HISTORY_POINTS of previous, scaled down, centroids,
+ * and outputs them as offsets from some orgin, one at a time.
+ */
 module draw_history(
 	input clock,
 	input enable,
@@ -636,10 +640,14 @@ module draw_history(
 	localparam X_OFFSET_WIDTH = `X_WIDTH - LOG2_HISTORY_DIM_DIVISOR;
 	localparam Y_OFFSET_WIDTH = `Y_WIDTH - LOG2_HISTORY_DIM_DIVISOR;
 
+	// the old centroids
 	reg [X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_xes;
 	reg [Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_ys;
+	// the state conuter
 	reg [HISTORY_POINTS_COUNTER_SIZE-1:0] counter;
 
+	// first shift in the new centroid (divided by 2^LOG2_HISTORY_DIM_DIVISOR)
+	// then on the next NUM_HISTORY_POINTS clocks, display each of the saved centroids.
 	always @(posedge clock) begin
 		if (enable) begin
 			if (counter == NUM_HISTORY_POINTS+1) begin
@@ -653,6 +661,7 @@ module draw_history(
 					 old_ys <= old_ys<<Y_OFFSET_WIDTH;
 					 old_ys [Y_OFFSET_WIDTH-1:0] <= centroid_in_y>>2;
 				end else begin
+					// read an (X|Y)_OFFSET_WIDTH number of bits from each shift register
 					offset_x <= old_xes[X_OFFSET_WIDTH*(counter-1) +:X_OFFSET_WIDTH];
 					offset_y <=  old_ys[Y_OFFSET_WIDTH*(counter-1) +:Y_OFFSET_WIDTH];
 				end
