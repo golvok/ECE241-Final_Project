@@ -252,7 +252,8 @@ module display (
 
 	localparam DIFFERENCE_THRESHOLD = 400;
 
-	localparam HISTORY_DIM_DIVISOR = 4;
+	localparam HISTORY_DIM_DIVISOR = 4; // be sure to update the LOG2 version
+	localparam LOG2_HISTORY_DIM_DIVISOR = 2; // = log_2(HISTORY_DIM_DIVISOR)
 	localparam CENTROID_IMAGE_DIM = 8;
 
 
@@ -316,7 +317,7 @@ module display (
 		.offset_y(hist_y_offset),
 		.done(hist_done)
 	);
-	defparam dh.HISTORY_DIM_DIVISOR = HISTORY_DIM_DIVISOR;
+	defparam dh.LOG2_HISTORY_DIM_DIVISOR = LOG2_HISTORY_DIM_DIVISOR;
 
 	reg [`X_WIDTH*2-1:0] x_hold;
 	reg [`Y_WIDTH*2-1:0] y_hold;
@@ -628,12 +629,12 @@ module draw_history(
 	output reg done
 	);
 
-	localparam NUM_HISTORY_POINTS = 20;
+	localparam NUM_HISTORY_POINTS = 20;// be sure to update the conuter size.
 	localparam HISTORY_POINTS_COUNTER_SIZE = 5;//needs to hold NUM_HISTORY_POINTS + 1
 
-	localparam X_OFFSET_WIDTH = `X_WIDTH - 2;//2 = log(HISTORY_DIM_DIVISOR)
-	localparam Y_OFFSET_WIDTH = `Y_WIDTH - 2;
-	parameter HISTORY_DIM_DIVISOR = 4;
+	parameter LOG2_HISTORY_DIM_DIVISOR;
+	localparam X_OFFSET_WIDTH = `X_WIDTH - LOG2_HISTORY_DIM_DIVISOR;
+	localparam Y_OFFSET_WIDTH = `Y_WIDTH - LOG2_HISTORY_DIM_DIVISOR;
 
 	reg [X_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_xes;
 	reg [Y_OFFSET_WIDTH*NUM_HISTORY_POINTS - 1:0] old_ys;
