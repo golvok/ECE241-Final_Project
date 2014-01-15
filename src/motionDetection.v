@@ -258,7 +258,6 @@ module display (
 
 
 	assign state_out[4:0] = draw_state;
-	// assign state[4] = done_drawing_centroid;
 	reg [4:0] draw_state;
 	reg [2:0] row_above;
 	reg [2:0] row_curr;
@@ -350,14 +349,12 @@ module display (
 
 				bdiff_read_y <= 0;
 				bdiff_read_x <= 0;
-				// bdiff_read_x <= bdiff_read_x +1;
 			end
 			else if(bdiff_read_x >= `IMAGE_W - 1)
 			begin
 				bdiff_read_x <= 0;
 				bdiff_read_y <= bdiff_read_y + 1;
 				draw_state <= STATE_DISPLAY;
-				// LEDR[0] <= !LEDR[0];
 			end
 			else
 			begin
@@ -378,8 +375,8 @@ module display (
 
 				|| (y_hold[`Y_WIDTH*2-1:`Y_WIDTH] < y_average
 				|| y_hold[`Y_WIDTH*2-1:`Y_WIDTH] >= y_average + CENTROID_IMAGE_DIM))
-			)
-			begin
+			) begin
+				// if not smoothings
 				vga_plot <= 1;
 			end
 
@@ -389,7 +386,6 @@ module display (
 			x_hold <= {x_hold[`X_WIDTH-1:0],bdiff_read_x};
 			y_hold <= {y_hold[`Y_WIDTH-1:0],bdiff_read_y};
 
-			// vga_colour <= bdiff_data_out;
 
 			if(enable_smoothing)
 			begin
@@ -416,14 +412,12 @@ module display (
 					y_total <= y_total + vga_y;
 				end
 				else vga_colour <=0;
-				// vga_colour <= row_above[1];
 			end
 			else
 			begin
 				vga_colour <= row_curr[1];
 			end
 
-			// checkColour <= !checkColour;
 			draw_state <= STATE_LOAD_CURRENT;
 		end
 		else if (draw_state == STATE_CALCULATE_CENTROID) begin
@@ -450,8 +444,6 @@ module display (
 
 			vga_x <= x_average + x_draw_centroid_offset;
 			vga_y <= y_average + y_draw_centroid_offset;
-			// vga_x <= x_draw_centroid_offset;
-			// vga_y <= y_draw_centroid_offset;
 
 			vga_colour <= draw_centroid_colour_out;
 
@@ -468,7 +460,6 @@ module display (
 			vga_colour <= 1;
 
 		end
-		// if(SW[5])LEDR[0] <= 0;
 		else
 		begin
 			vga_plot <= 0;
@@ -480,7 +471,6 @@ module display (
 					set_row_address <= 1;
 				end else begin
 					row_curr <= {row_curr[1:0], bdiff_data_out};
-					// row_curr <= 3'b111;
 					draw_state <= STATE_LOAD_BELOW;
 					set_row_address <= 0;
 				end
@@ -493,7 +483,6 @@ module display (
 					set_row_address <= 1;
 				end else begin
 					row_below <= {row_below[1:0], bdiff_data_out};
-					// row_below <= 3'b111;
 					draw_state <= STATE_LOAD_ABOVE;
 					set_row_address <= 0;
 				end
@@ -506,7 +495,6 @@ module display (
 					set_row_address <= 1;
 				end else begin
 					row_above <= {row_above[1:0], bdiff_data_out};
-					// row_above <= 3'b111;
 					draw_state <= STATE_UPDATE_INDICES;
 					set_row_address <= 0;
 				end
