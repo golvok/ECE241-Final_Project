@@ -31,7 +31,7 @@ module motionDetection(
 	);
 
 
-
+	// data from the Video_In controller
 	wire pixelIn_en;
 	wire [4:0] pixelIn_r, pixelIn_b;
 	wire [5:0] pixelIn_g;
@@ -39,12 +39,11 @@ module motionDetection(
 	wire [8:0] pixelIn_x;
 	wire [7:0] pixelIn_y;
 
+	// control and data lines to the vga_adapter
 	wire vga_plot;
 	wire [8:0] vga_x;
 	wire [7:0] vga_y;
-
 	wire vga_colour;
-	reg enableClock;
 
 	assign LEDR[5] = 1;
 
@@ -78,10 +77,7 @@ module motionDetection(
 	vga_adapter VGA(
 				.resetn(KEY[0]),
 				.clock(CLOCK_50),
-				// .colour({pixelIn_r[4], pixelIn_g[5], pixelIn_b[4]}),
 				.colour(vga_colour),
-				// .colour(prev_image_data_out[displayChanel]),
-				// .colour(prev_image_data_in[displayChanel]),
 				.x(vga_x),
 				.y(vga_y),
 				.plot(vga_plot),
@@ -99,12 +95,14 @@ module motionDetection(
 			defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 
 
-	wire [2:0]  prev_image_data_in;
-	wire [16:0] prev_image_rdaddress;
-	wire [16:0] prev_image_wraddress;
-	wire        prev_image_wr_en;
-	wire [2:0]  prev_image_data_out;
+	wire [2:0]  prev_image_data_in;   // input data
+	wire [16:0] prev_image_rdaddress; // read address
+	wire [16:0] prev_image_wraddress; // write address
+	wire        prev_image_wr_en;     // write enable
+	wire [2:0]  prev_image_data_out;  // output data
 
+	// 3-bit-byte RAM that stores the previous frame.
+	// set by the difference_engine
 	prev_image_ram prev_image(
 		.data(prev_image_data_in),
 		.rdaddress(prev_image_rdaddress),
@@ -115,12 +113,15 @@ module motionDetection(
 		.q(prev_image_data_out)
 	);
 
-	wire        bdiff_data_in;
-	wire [16:0] bdiff_rdaddress;
-	wire [16:0] bdiff_wraddress;
-	wire        bdiff_wr_en;
-	wire        bdiff_data_out;
+	wire        bdiff_data_in;   // input data
+	wire [16:0] bdiff_rdaddress; // read address
+	wire [16:0] bdiff_wraddress; // write address
+	wire        bdiff_wr_en;     // write enable
+	wire        bdiff_data_out;  // output data
 
+	// bit addressable RAM that stores the binary
+	// image between the current and previous frames
+	// set by the difference_engine
 	bdiff_image bdi(
 		.data(bdiff_data_in),
 		.rdaddress(bdiff_rdaddress),
@@ -169,7 +170,13 @@ module motionDetection(
 
 endmodule
 
-
+/**
+ * This isn't nearly as complex or interesting as its
+ * name suggests. Just diffs the pixels sreamed in by
+ * pixelIn_* angainst the ram hooked up to prev_image_* ,
+ * and stores it in tho ram hooked up to bdifff_* .
+ * Also stores the streamed pixel in prev_image_* .
+ */
 module difference_engine (
 		input clock,
 
@@ -178,8 +185,8 @@ module difference_engine (
 		input [`X_WIDTH-1:0] pixelIn_x,
 		input [`Y_WIDTH-1:0] pixelIn_y,
 
-		input [1:0] displayChanel,
-		input enable_diff,
+		input [1:0] displayChanel, // the channel to copy when not diffing
+		input enable_diff, // ENABLE THE DIFFERENCE ENGINE
 
 		output reg [2:0]  prev_image_data_in,
 		output reg [16:0] prev_image_wraddress,
@@ -202,25 +209,30 @@ always @(posedge clock)
 
 		if(pixelIn_en)
 		begin
-			bdiff_wr_en <= 1;
-			prev_image_wr_en <=1;
+			// if we get a pixel in, enable wrinting to...
+			bdiff_wr_en <= 1; // write new diff data, and
+			prev_image_wr_en <=1; // save the new pixel (set above)
 			if(enable_diff)
 			begin
 				if(prev_image_data_out != pixelIn_colour) begin
+					// if they're different, store a 1
 					bdiff_data_in <= 1;
 				end
 				else
 				begin
+					// else 0
 					bdiff_data_in <= 0;
 				end
 			end
 			else
 			begin
+				// if we're not diffing, copy the one chosen channel of the image.
 				bdiff_data_in <= prev_image_data_out[displayChanel];
 			end
 		end
 		else
 		begin
+			// disable writing
 			bdiff_wr_en <= 0;
 			prev_image_wr_en <= 0;
 		end
@@ -240,6 +252,8 @@ module display (
 		input vga_vsync,
 		output [4:0]state_out
 	);
+
+	//state declarations
 	localparam STATE_WAIT_FOR_FRAME     = 0;
 	localparam STATE_LOAD_CURRENT 	    = 1;
 	localparam STATE_LOAD_BELOW 	    = 2;
@@ -250,8 +264,11 @@ module display (
 	localparam STATE_DRAW_CENTROID 	    = 7;
 	localparam STATE_DRAW_HIST          = 8;
 
+	// the threshold at which to display the centroid
 	localparam DIFFERENCE_THRESHOLD = 400;
 
+	//some constants to define the ratio of the size
+	// of the history box's dimensions to the screen
 	localparam HISTORY_DIM_DIVISOR = 4; // be sure to update the LOG2 version
 	localparam LOG2_HISTORY_DIM_DIVISOR = 2; // = log_2(HISTORY_DIM_DIVISOR)
 	localparam CENTROID_IMAGE_DIM = 8;
@@ -259,20 +276,26 @@ module display (
 
 	assign state_out[4:0] = draw_state;
 	reg [4:0] draw_state;
-	reg [2:0] row_above;
-	reg [2:0] row_curr;
-	reg [2:0] row_below;
 
+	// the smoothing box of the loaded binary image.
+	reg [2:0] row_above; // the three bits above
+	reg [2:0] row_curr; // the three bits in the current row
+	reg [2:0] row_below; // the three bits below
+
+	// used to calc the read address of the binary image
 	reg [8:0] bdiff_read_x;
 	reg [7:0] bdiff_read_y;
 
-	reg checkColour;
+	// used for calcutalting the centroid
 	reg [23:0] x_total;
 	reg [23:0] y_total;
 	reg [16:0] diff_count;
+
+	// the current centroid
 	reg [`X_WIDTH-1:0] x_average;
 	reg [`Y_WIDTH-1:0] y_average;
 
+	// the results from the calculate_centroid module
 	wire [`X_WIDTH-1:0] new_centroid_x;
 	wire [`Y_WIDTH-1:0] new_centroid_y;
 	wire done_calculating_centroid;
@@ -326,6 +349,7 @@ module display (
 	always @(posedge clock)
 	begin
 		if(draw_state == STATE_WAIT_FOR_FRAME) begin
+			//wait until the VGA contloller sends the VSYNC signal
 			vga_plot <= 0;
 			if (!vga_vsync) begin
 				draw_state <= STATE_UPDATE_INDICES;
@@ -333,10 +357,13 @@ module display (
 		end
 		else if(draw_state == STATE_UPDATE_INDICES)
 		begin
+			// by update indicies we mean increment them, and detect when done
 			if (bdiff_read_x >= `IMAGE_W - 2 && bdiff_read_y >= `IMAGE_H - 2)
 			begin
 				if(diff_count < DIFFERENCE_THRESHOLD)
 				begin
+					// if the frame doesn't have enough differnce,
+					// skip drawing the centroid
 					draw_state <= STATE_DISPLAY;
 					x_total <= 0;
 					y_total <= 0;
@@ -347,6 +374,7 @@ module display (
 					draw_state <= STATE_CALCULATE_CENTROID;
 				end
 
+				// no use, but make the netlist saner
 				bdiff_read_y <= 0;
 				bdiff_read_x <= 0;
 			end
@@ -376,10 +404,17 @@ module display (
 				|| (y_hold[`Y_WIDTH*2-1:`Y_WIDTH] < y_average
 				|| y_hold[`Y_WIDTH*2-1:`Y_WIDTH] >= y_average + CENTROID_IMAGE_DIM))
 			) begin
-				// if not smoothings
+				// only draw if not smoothing and not where the centroid was
+				// prevents drawing over the centroid with the next frame.
+				// otherwise the centroid would not display above about 1/3 from the bottom of
+				// the screen, as the vga controller would have transmitted that area already,
+				// before it would be set by the draw_centroid module, as that is done after calcutating
+				// a frame of difference, and this takes about the time the VGA needs to send about 2/3 of the screen
 				vga_plot <= 1;
 			end
 
+			// part of a shift register to delay the value of the vga position by 3 cycles,
+			// workaround for the request-retrieval delay
 			vga_x <= x_hold[`X_WIDTH*2-1:`X_WIDTH];
 			vga_y <= y_hold[`Y_WIDTH*2-1:`Y_WIDTH];
 
@@ -393,34 +428,40 @@ module display (
 				 || y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] ==  `IMAGE_H - `IMAGE_H/HISTORY_DIM_DIVISOR + 1) &&
 					show_history && x_hold[`X_WIDTH*2 - 1:`X_WIDTH] > (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR)
 								 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] >  `IMAGE_H - `IMAGE_H/HISTORY_DIM_DIVISOR) begin
+					//draw the border of the history box - it's in the lower left corner
 					vga_colour <= 1;
 				end
-				else if ( row_above[0] & row_above[1] & row_above[2]
+				else if ( row_above[0] & row_above[1] & row_above[2] // erode the image - only plot if it and its neighbours are on
 						&  row_curr[0] &  row_curr[1] &  row_curr[2]
 						& row_below[0] & row_below[1] & row_below[2]) begin
 
 					if (show_history && x_hold[`X_WIDTH*2 - 1:`X_WIDTH] > (`IMAGE_W - `IMAGE_W/HISTORY_DIM_DIVISOR)
 									 && y_hold[`Y_WIDTH*2 - 1:`Y_WIDTH] >  `IMAGE_H - `IMAGE_H/HISTORY_DIM_DIVISOR) begin
+							// if in the history box, draw black. (we'll draw over this later)
 							vga_colour <= 0;
 					end
 					else begin
+						// if it's passed the smoothing, and isn't in the history box, draw white.
 						vga_colour <= 1;
 					end
 
-					diff_count <= diff_count + 1;
-					x_total <= x_total + vga_x;
-					y_total <= y_total + vga_y;
+					diff_count <= diff_count + 1; // for thresholdnig
+					x_total <= x_total + vga_x; // for centroid
+					y_total <= y_total + vga_y; // for centroid
 				end
 				else vga_colour <=0;
 			end
 			else
 			begin
+				// if not smoothing, just copy the image
 				vga_colour <= row_curr[1];
 			end
 
 			draw_state <= STATE_LOAD_CURRENT;
 		end
 		else if (draw_state == STATE_CALCULATE_CENTROID) begin
+			// being in this state will activate the calculate_centroid module
+			// so wait 'til it's done
 			if(done_calculating_centroid) begin
 				draw_state <= STATE_DRAW_CENTROID;
 				x_average <= new_centroid_x;
@@ -431,7 +472,8 @@ module display (
 			end
 		end
 		else if (draw_state == STATE_DRAW_CENTROID) begin
-
+			// being in this state will activate the draw_centroid module.
+			// set the plot signal, and wait 'til it's done.
 			vga_plot <= 1;
 
 			if (done_drawing_centroid) begin
@@ -442,6 +484,7 @@ module display (
 				end
 			end
 
+			// the draw_centroid module outputs relative co-ords
 			vga_x <= x_average + x_draw_centroid_offset;
 			vga_y <= y_average + y_draw_centroid_offset;
 
@@ -449,20 +492,27 @@ module display (
 
 		end
 		else if (draw_state == STATE_DRAW_HIST) begin
-
+			// being in this state will activate the draw_history module
+			// set the plot, and wait 'til it's done.
 			vga_plot <= 1;
 
 			if(hist_done) draw_state <= STATE_WAIT_FOR_FRAME;
 
+			// the draw_history module outputs relative co-ords
 			vga_x <= `IMAGE_W - (`IMAGE_W/HISTORY_DIM_DIVISOR) + hist_x_offset;
 			vga_y <= `IMAGE_H - (`IMAGE_H/HISTORY_DIM_DIVISOR) + hist_y_offset;
 
+			// the area was drawn over with black earlier
 			vga_colour <= 1;
 
 		end
 		else
 		begin
 			vga_plot <= 0;
+
+			// load the next three bits of the 3x3 smoothing box
+			// from the binary image. Set the address, then read
+			// on the the next clock, shifting over the old data.
 
 			if(draw_state == STATE_LOAD_CURRENT)
 			begin
@@ -505,6 +555,11 @@ endmodule
 
 /*
  * Works at a slower clock, and calculates the centroid.
+ * note that this is done improperly. should be double registered.
+ * It was a one point, but removed, because we didn't know what it
+ * was, or that it is necessary. Also should use a pulse locked loop (PLL)
+ * there were othere solutions, that would use smaller divisors,
+ * and therefor be less latent, but we we strapped for time.
  */
 module calculate_centroid (
 	input clock_in,
